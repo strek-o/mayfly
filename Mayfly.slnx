@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Mayfly.Web/Mayfly.Web.csproj" />
+  </Folder>
+</Solution>
