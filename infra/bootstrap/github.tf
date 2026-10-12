@@ -1,5 +1,5 @@
 locals {
-  github_repository = "strek-o/mayfly"
+  github_repository = "strek-o@63954716/mayfly@1413205794"
 }
 
 resource "azurerm_user_assigned_identity" "github" {
