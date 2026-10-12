@@ -1,3 +1,7 @@
+resource "azurerm_resource_provider_registration" "container_apps" {
+  name = "Microsoft.App"
+}
+
 resource "azurerm_resource_group" "env" {
   for_each = local.environments
 
