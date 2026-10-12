@@ -1,0 +1,45 @@
+name: Azure login check
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to sign in to
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      TARGET_ENV: ${{ inputs.environment }}
+      OTHER_ENV: ${{ inputs.environment == 'dev' && 'prod' || 'dev' }}
+
+    steps:
+      - name: Sign in to Azure with OIDC
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Show signed-in account
+        run: az account show --query "{subscription:name, tenant:tenantId, type:user.type}" --output table
+
+      - name: Read own resource group
+        run: az group show --name "rg-mayfly-$TARGET_ENV" --query "{name:name, location:location}" --output table
+
+      - name: Confirm no access to the other environment
+        run: |
+          if az group show --name "rg-mayfly-$OTHER_ENV" > /dev/null 2>&1; then
+            echo "::error::Identity for $TARGET_ENV can read rg-mayfly-$OTHER_ENV"
+            exit 1
+          fi
+          echo "No access to rg-mayfly-$OTHER_ENV, as expected"
