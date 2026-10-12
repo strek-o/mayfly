@@ -1,3 +1,5 @@
+data "azurerm_client_config" "current" {}
+
 locals {
   tags = {
     project    = "mayfly"
@@ -43,4 +45,10 @@ resource "azurerm_storage_container" "bootstrap" {
   name                  = "tfstate-bootstrap"
   storage_account_id    = azurerm_storage_account.tfstate.id
   container_access_type = "private"
+}
+
+resource "azurerm_role_assignment" "operator_state" {
+  scope                = azurerm_storage_account.tfstate.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = data.azurerm_client_config.current.object_id
 }
