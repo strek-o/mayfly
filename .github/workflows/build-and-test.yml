@@ -1,0 +1,40 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore dependencies
+        run: dotnet restore Mayfly.slnx
+
+      - name: Check formatting
+        run: dotnet format Mayfly.slnx --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build Mayfly.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --solution Mayfly.slnx --configuration Release --no-build
