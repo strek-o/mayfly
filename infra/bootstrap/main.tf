@@ -7,6 +7,7 @@ locals {
   }
 
   state_storage_name = "stmayflytfstate"
+  environments       = toset(["dev", "prod"])
 }
 
 resource "azurerm_resource_group" "bootstrap" {

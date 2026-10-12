@@ -1,6 +1,5 @@
 locals {
   github_repository = "strek-o/mayfly"
-  environments      = toset(["dev", "prod"])
 }
 
 resource "azurerm_user_assigned_identity" "github" {
