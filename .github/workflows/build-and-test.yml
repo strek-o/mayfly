@@ -83,3 +83,14 @@ jobs:
         run: |
           az acr login --name "$REGISTRY"
           docker push "$IMAGE"
+
+  deploy-dev:
+    needs: image
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: dev
+      image_tag: ${{ github.sha }}
