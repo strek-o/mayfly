@@ -13,3 +13,7 @@ output "github_client_ids" {
 output "container_registry_login_server" {
   value = azurerm_container_registry.shared.login_server
 }
+
+output "github_build_client_id" {
+  value = azurerm_user_assigned_identity.github_build.client_id
+}
