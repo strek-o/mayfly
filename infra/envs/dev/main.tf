@@ -9,6 +9,8 @@ locals {
   }
 }
 
+data "azurerm_client_config" "current" {}
+
 data "azurerm_resource_group" "env" {
   name = "rg-mayfly-${local.environment}"
 }
@@ -37,4 +39,15 @@ module "container_app" {
   registry_server              = local.registry_server
   pull_identity_id             = data.azurerm_user_assigned_identity.pull.id
   tags                         = local.tags
+}
+
+module "mssql_database" {
+  source = "../../modules/mssql_database"
+
+  name                = "mayfly-${local.environment}"
+  resource_group_name = data.azurerm_resource_group.env.name
+  location            = data.azurerm_resource_group.env.location
+  admin_login         = "id-mayfly-github-${local.environment}"
+  admin_object_id     = data.azurerm_client_config.current.object_id
+  tags                = local.tags
 }
