@@ -9,3 +9,7 @@ output "azure_subscription_id" {
 output "github_client_ids" {
   value = { for env, identity in azurerm_user_assigned_identity.github : env => identity.client_id }
 }
+
+output "container_registry_login_server" {
+  value = azurerm_container_registry.shared.login_server
+}
