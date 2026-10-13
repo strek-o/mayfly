@@ -62,3 +62,21 @@ resource "azurerm_role_assignment" "github_pull_operator" {
   principal_id         = azurerm_user_assigned_identity.github[each.key].principal_id
   principal_type       = "ServicePrincipal"
 }
+
+resource "azurerm_user_assigned_identity" "app" {
+  for_each = local.environments
+
+  name                = "id-mayfly-app-${each.key}"
+  resource_group_name = azurerm_resource_group.bootstrap.name
+  location            = azurerm_resource_group.bootstrap.location
+  tags                = merge(local.tags, { environment = each.key })
+}
+
+resource "azurerm_role_assignment" "github_app_operator" {
+  for_each = local.environments
+
+  scope                = azurerm_user_assigned_identity.app[each.key].id
+  role_definition_name = "Managed Identity Operator"
+  principal_id         = azurerm_user_assigned_identity.github[each.key].principal_id
+  principal_type       = "ServicePrincipal"
+}
