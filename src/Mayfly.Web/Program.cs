@@ -1,5 +1,6 @@
 using Mayfly.Web.Components;
 using Mayfly.Web.Data;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,7 +14,8 @@ builder.Services.AddDbContextFactory<MayflyDbContext>(options =>
         builder.Configuration.GetConnectionString("Mayfly"),
         sql => sql.EnableRetryOnFailure()));
 
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<MayflyDbContext>(tags: ["ready"]);
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -36,7 +38,14 @@ app.UseHttpsRedirection();
 
 app.UseAntiforgery();
 
-app.MapHealthChecks("/healthz");
+app.MapHealthChecks("/healthz", new HealthCheckOptions
+{
+    Predicate = _ => false
+});
+app.MapHealthChecks("/healthz/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
