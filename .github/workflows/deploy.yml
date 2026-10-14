@@ -119,9 +119,9 @@ jobs:
             -v AppIdentityClientId=${{ steps.sql.outputs.app_identity_client_id }}
           skip-firewall-check: true
 
-      - name: Check health endpoint
+      - name: Check readiness endpoint
         run: |
-          url="$(terraform output -raw app_url)/healthz"
+          url="$(terraform output -raw app_url)/healthz/ready"
           for attempt in $(seq 1 12); do
             if curl --fail --silent --show-error --max-time 10 "$url"; then
               echo

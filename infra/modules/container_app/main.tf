@@ -52,8 +52,9 @@ resource "azurerm_container_app" "this" {
 
       readiness_probe {
         transport = "HTTP"
-        path      = "/healthz"
+        path      = "/healthz/ready"
         port      = var.target_port
+        timeout   = 5
       }
     }
   }
