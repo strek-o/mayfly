@@ -87,17 +87,37 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Apply database migrations
+      - name: Read database settings
+        id: sql
         run: |
-          server="$(terraform output -raw sql_server_fqdn)"
-          database="$(terraform output -raw sql_database_name)"
-          cd "$GITHUB_WORKSPACE"
+          {
+            echo "connection_string=Server=tcp:$(terraform output -raw sql_server_fqdn),1433;Initial Catalog=$(terraform output -raw sql_database_name);Authentication=Active Directory Default;Encrypt=True"
+            echo "app_identity_name=$(terraform output -raw app_identity_name)"
+            echo "app_identity_client_id=$(terraform output -raw app_identity_client_id)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Apply database migrations
+        working-directory: ${{ github.workspace }}
+        env:
+          CONNECTION_STRING: ${{ steps.sql.outputs.connection_string }}
+        run: |
           dotnet tool restore
           dotnet build src/Mayfly.Web
           dotnet ef database update \
             --project src/Mayfly.Web \
             --no-build \
-            --connection "Server=tcp:${server},1433;Database=${database};Authentication=Active Directory Default;Encrypt=True"
+            --connection "$CONNECTION_STRING"
+
+      - name: Grant app identity access to database
+        uses: azure/sql-action@eb1f9a80487ca52b90f41a473f53da4943526994 # v2.4
+        with:
+          connection-string: ${{ steps.sql.outputs.connection_string }}
+          path: infra/sql/app-user.sql
+          arguments: >-
+            -b
+            -v AppIdentityName=${{ steps.sql.outputs.app_identity_name }}
+            -v AppIdentityClientId=${{ steps.sql.outputs.app_identity_client_id }}
+          skip-firewall-check: true
 
       - name: Check health endpoint
         run: |

@@ -21,3 +21,11 @@ output "sql_server_fqdn" {
 output "sql_database_name" {
   value = module.mssql_database.database_name
 }
+
+output "app_identity_name" {
+  value = data.azurerm_user_assigned_identity.app.name
+}
+
+output "app_identity_client_id" {
+  value = data.azurerm_user_assigned_identity.app.client_id
+}
