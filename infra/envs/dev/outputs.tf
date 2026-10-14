@@ -10,6 +10,10 @@ output "app_url" {
   value = module.container_app.url
 }
 
+output "sql_server_name" {
+  value = module.mssql_database.server_name
+}
+
 output "sql_server_fqdn" {
   value = module.mssql_database.server_fqdn
 }

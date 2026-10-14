@@ -61,6 +61,18 @@ jobs:
       - name: Terraform apply
         run: terraform apply tfplan
 
+      - name: Allow runner access to SQL
+        id: sql-firewall
+        run: |
+          runner_ip="$(curl --fail --silent --show-error --max-time 10 https://api.ipify.org)"
+          az sql server firewall-rule create \
+            --resource-group "$(terraform output -raw resource_group_name)" \
+            --server "$(terraform output -raw sql_server_name)" \
+            --name github-actions-deploy \
+            --start-ip-address "$runner_ip" \
+            --end-ip-address "$runner_ip" \
+            --output none
+
       - name: Check health endpoint
         run: |
           url="$(terraform output -raw app_url)/healthz"
@@ -75,3 +87,11 @@ jobs:
           done
           echo "::error::Health check failed for $url"
           exit 1
+
+      - name: Remove runner access to SQL
+        if: always() && steps.sql-firewall.outcome == 'success'
+        run: |
+          az sql server firewall-rule delete \
+            --resource-group "$(terraform output -raw resource_group_name)" \
+            --server "$(terraform output -raw sql_server_name)" \
+            --name github-actions-deploy
