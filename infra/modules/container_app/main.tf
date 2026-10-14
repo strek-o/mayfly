@@ -7,7 +7,7 @@ resource "azurerm_container_app" "this" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [var.pull_identity_id]
+    identity_ids = compact([var.pull_identity_id, var.app_identity_id])
   }
 
   registry {
@@ -34,6 +34,15 @@ resource "azurerm_container_app" "this" {
       image  = var.image
       cpu    = var.cpu
       memory = var.memory
+
+      dynamic "env" {
+        for_each = var.env
+
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
 
       liveness_probe {
         transport = "HTTP"

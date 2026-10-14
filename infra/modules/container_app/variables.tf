@@ -51,3 +51,13 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "app_identity_id" {
+  type    = string
+  default = null
+}
+
+variable "env" {
+  type    = map(string)
+  default = {}
+}
