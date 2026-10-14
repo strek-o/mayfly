@@ -93,8 +93,10 @@ jobs:
           database="$(terraform output -raw sql_database_name)"
           cd "$GITHUB_WORKSPACE"
           dotnet tool restore
+          dotnet build src/Mayfly.Web
           dotnet ef database update \
             --project src/Mayfly.Web \
+            --no-build \
             --connection "Server=tcp:${server},1433;Database=${database};Authentication=Active Directory Default;Encrypt=True"
 
       - name: Check health endpoint
