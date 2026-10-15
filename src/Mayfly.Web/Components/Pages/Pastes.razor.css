@@ -1,0 +1,3 @@
+form:not(:has(option[value="Custom"]:checked)) .custom-date {
+  display: none;
+}
