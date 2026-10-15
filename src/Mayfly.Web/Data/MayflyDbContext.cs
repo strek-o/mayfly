@@ -9,6 +9,10 @@ public class MayflyDbContext(DbContextOptions<MayflyDbContext> options)
 {
     public DbSet<Paste> Pastes => Set<Paste>();
 
+    public DbSet<PasteThread> Threads => Set<PasteThread>();
+
+    public DbSet<ThreadEntry> Entries => Set<ThreadEntry>();
+
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -18,6 +22,14 @@ public class MayflyDbContext(DbContextOptions<MayflyDbContext> options)
         modelBuilder.Entity<Paste>(paste =>
         {
             paste.Property(p => p.Title).HasMaxLength(200);
+            paste.HasOne<ApplicationUser>().WithMany().HasForeignKey(p => p.OwnerId);
+            paste.HasMany(p => p.Threads).WithOne().HasForeignKey(t => t.PasteId);
+        });
+
+        modelBuilder.Entity<PasteThread>(thread =>
+        {
+            thread.Property(t => t.Title).HasMaxLength(200);
+            thread.HasMany(t => t.Entries).WithOne().HasForeignKey(e => e.ThreadId);
         });
     }
 }
