@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @using System.ComponentModel.DataAnnotations
 @using Mayfly.Web.Data
+@using Mayfly.Web.Pastes
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<MayflyDbContext> DbFactory
@@ -16,9 +17,30 @@
     <DataAnnotationsValidator />
     <ValidationSummary />
 
+    @if (error is not null)
+    {
+        <p>@error</p>
+    }
+
     <label>
         Title
         <InputText @bind-Value="Input.Title" />
+    </label>
+
+    <label>
+        Expires
+        <InputSelect @bind-Value="Input.Lifetime">
+            <option value="@PasteLifetime.Forever">Never</option>
+            <option value="@PasteLifetime.OneHour">In 1 hour</option>
+            <option value="@PasteLifetime.OneDay">In 1 day</option>
+            <option value="@PasteLifetime.SevenDays">In 7 days</option>
+            <option value="@PasteLifetime.Custom">Custom date</option>
+        </InputSelect>
+    </label>
+
+    <label>
+        Custom date (UTC)
+        <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="Input.CustomExpiresAt" />
     </label>
 
     <button type="submit">Create paste</button>
@@ -33,7 +55,11 @@ else
     <ul>
         @foreach (var paste in pastes)
         {
-            <li><a href="pastes/@paste.Id">@paste.Title</a> · @paste.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</li>
+            <li>
+                <a href="pastes/@paste.Id">@paste.Title</a>
+                · created @paste.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC
+                · @(paste.ExpiresAt is { } expiresAt ? $"expires {expiresAt:yyyy-MM-dd HH:mm} UTC" : "never expires")
+            </li>
         }
     </ul>
 }
@@ -49,6 +75,8 @@ else
 
     private string ownerId = "";
 
+    private string? error;
+
     protected override async Task OnInitializedAsync()
     {
         Input ??= new();
@@ -61,18 +89,31 @@ else
         pastes = await db.Pastes
             .AsNoTracking()
             .Where(paste => paste.OwnerId == ownerId)
+            .WhereNotExpired(DateTimeOffset.UtcNow)
             .OrderByDescending(paste => paste.CreatedAt)
             .ToListAsync();
     }
 
     private async Task CreateAsync()
     {
+        var now = DateTimeOffset.UtcNow;
+        DateTimeOffset? customExpiresAt = Input.CustomExpiresAt is { } custom
+            ? new DateTimeOffset(custom, TimeSpan.Zero)
+            : null;
+
+        if (Input.Lifetime == PasteLifetime.Custom && !(customExpiresAt > now))
+        {
+            error = "Custom date must be in the future.";
+            return;
+        }
+
         await using var db = await DbFactory.CreateDbContextAsync();
         db.Pastes.Add(new Paste
         {
             OwnerId = ownerId,
             Title = Input.Title.Trim(),
-            CreatedAt = DateTimeOffset.UtcNow
+            CreatedAt = now,
+            ExpiresAt = PasteExpiration.Calculate(Input.Lifetime, now, customExpiresAt)
         });
         await db.SaveChangesAsync();
 
@@ -84,5 +125,9 @@ else
         [Required]
         [StringLength(200)]
         public string Title { get; set; } = "";
+
+        public PasteLifetime Lifetime { get; set; } = PasteLifetime.Forever;
+
+        public DateTime? CustomExpiresAt { get; set; }
     }
 }

@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @using System.ComponentModel.DataAnnotations
 @using Mayfly.Web.Data
+@using Mayfly.Web.Pastes
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<MayflyDbContext> DbFactory
@@ -13,6 +14,8 @@
     <PageTitle>@paste.Title</PageTitle>
 
     <h1>@paste.Title</h1>
+
+    <p>@(paste.ExpiresAt is { } expiresAt ? $"Expires {expiresAt:yyyy-MM-dd HH:mm} UTC" : "Never expires")</p>
 
     <p><a href="pastes">Back to my pastes</a></p>
 
@@ -69,7 +72,9 @@
         paste = await db.Pastes
             .AsNoTracking()
             .Include(p => p.Threads.OrderBy(thread => thread.CreatedAt))
-            .SingleOrDefaultAsync(p => p.Id == Id && p.OwnerId == ownerId);
+            .Where(p => p.Id == Id && p.OwnerId == ownerId)
+            .WhereNotExpired(DateTimeOffset.UtcNow)
+            .SingleOrDefaultAsync();
 
         if (paste is null)
         {

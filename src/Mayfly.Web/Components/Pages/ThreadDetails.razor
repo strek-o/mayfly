@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @using System.ComponentModel.DataAnnotations
 @using Mayfly.Web.Data
+@using Mayfly.Web.Pastes
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<MayflyDbContext> DbFactory
@@ -72,6 +73,7 @@
         await using var db = await DbFactory.CreateDbContextAsync();
         pasteTitle = await db.Pastes
             .Where(paste => paste.Id == PasteId && paste.OwnerId == ownerId)
+            .WhereNotExpired(DateTimeOffset.UtcNow)
             .Select(paste => paste.Title)
             .SingleOrDefaultAsync();
 
