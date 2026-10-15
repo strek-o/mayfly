@@ -19,6 +19,15 @@ resource "azurerm_role_assignment" "github_contributor" {
   principal_type       = "ServicePrincipal"
 }
 
+resource "azurerm_role_assignment" "github_key_vault" {
+  for_each = local.environments
+
+  scope                = azurerm_resource_group.env[each.key].id
+  role_definition_name = "Key Vault Crypto Officer"
+  principal_id         = azurerm_user_assigned_identity.github[each.key].principal_id
+  principal_type       = "ServicePrincipal"
+}
+
 resource "azurerm_storage_container" "env" {
   for_each = local.environments
 
@@ -78,5 +87,14 @@ resource "azurerm_role_assignment" "github_app_operator" {
   scope                = azurerm_user_assigned_identity.app[each.key].id
   role_definition_name = "Managed Identity Operator"
   principal_id         = azurerm_user_assigned_identity.github[each.key].principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+resource "azurerm_role_assignment" "app_key_vault" {
+  for_each = local.environments
+
+  scope                = azurerm_resource_group.env[each.key].id
+  role_definition_name = "Key Vault Crypto Service Encryption User"
+  principal_id         = azurerm_user_assigned_identity.app[each.key].principal_id
   principal_type       = "ServicePrincipal"
 }
