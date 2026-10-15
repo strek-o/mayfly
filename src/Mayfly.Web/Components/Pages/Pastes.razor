@@ -33,7 +33,7 @@ else
     <ul>
         @foreach (var paste in pastes)
         {
-            <li>@paste.Title · @paste.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</li>
+            <li><a href="pastes/@paste.Id">@paste.Title</a> · @paste.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</li>
         }
     </ul>
 }
