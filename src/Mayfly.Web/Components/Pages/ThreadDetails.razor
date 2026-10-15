@@ -1,0 +1,117 @@
+@page "/pastes/{PasteId:guid}/threads/{ThreadId:guid}"
+@attribute [Authorize]
+@using System.ComponentModel.DataAnnotations
+@using Mayfly.Web.Data
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<MayflyDbContext> DbFactory
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Navigation
+
+@if (thread is not null)
+{
+    <PageTitle>@thread.Title</PageTitle>
+
+    <h1>@thread.Title</h1>
+
+    <p><a href="pastes/@PasteId">Back to @pasteTitle</a></p>
+
+    @if (thread.Entries.Count == 0)
+    {
+        <p>No entries yet.</p>
+    }
+    else
+    {
+        @foreach (var entry in thread.Entries)
+        {
+            <article>
+                <pre>@entry.Content</pre>
+                <small>@entry.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</small>
+            </article>
+        }
+    }
+
+    <EditForm Model="Input" FormName="add-entry" OnValidSubmit="AddEntryAsync" method="post">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <label>
+            New entry
+            <InputTextArea @bind-Value="Input.Content" rows="10" />
+        </label>
+
+        <button type="submit">Add entry</button>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public Guid PasteId { get; set; }
+
+    [Parameter]
+    public Guid ThreadId { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = default!;
+
+    private string? pasteTitle;
+
+    private PasteThread? thread;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+
+        var user = (await AuthenticationState).User;
+        var ownerId = UserManager.GetUserId(user)
+            ?? throw new InvalidOperationException("Signed-in user has no id claim.");
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        pasteTitle = await db.Pastes
+            .Where(paste => paste.Id == PasteId && paste.OwnerId == ownerId)
+            .Select(paste => paste.Title)
+            .SingleOrDefaultAsync();
+
+        if (pasteTitle is not null)
+        {
+            thread = await db.Threads
+                .AsNoTracking()
+                .Include(t => t.Entries.OrderBy(entry => entry.CreatedAt))
+                .SingleOrDefaultAsync(t => t.Id == ThreadId && t.PasteId == PasteId);
+        }
+
+        if (thread is null)
+        {
+            Navigation.NotFound();
+        }
+    }
+
+    private async Task AddEntryAsync()
+    {
+        if (thread is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.Entries.Add(new ThreadEntry
+        {
+            ThreadId = thread.Id,
+            Content = Input.Content,
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        Navigation.NavigateTo($"pastes/{PasteId}/threads/{thread.Id}");
+    }
+
+    private sealed class InputModel
+    {
+        [Required]
+        [StringLength(100_000)]
+        public string Content { get; set; } = "";
+    }
+}

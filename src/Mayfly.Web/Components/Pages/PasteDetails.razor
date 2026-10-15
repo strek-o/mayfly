@@ -27,7 +27,7 @@
         <ul>
             @foreach (var thread in paste.Threads)
             {
-                <li>@thread.Title</li>
+                <li><a href="pastes/@paste.Id/threads/@thread.Id">@thread.Title</a></li>
             }
         </ul>
     }
