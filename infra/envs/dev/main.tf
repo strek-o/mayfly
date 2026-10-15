@@ -47,9 +47,28 @@ module "container_app" {
   tags                         = local.tags
 
   env = {
-    AZURE_CLIENT_ID           = data.azurerm_user_assigned_identity.app.client_id
-    ConnectionStrings__Mayfly = "Server=tcp:${module.mssql_database.server_fqdn},1433;Database=${module.mssql_database.database_name};Authentication=Active Directory Managed Identity;User Id=${data.azurerm_user_assigned_identity.app.client_id};Encrypt=True"
+    AZURE_CLIENT_ID                = data.azurerm_user_assigned_identity.app.client_id
+    ConnectionStrings__Mayfly      = "Server=tcp:${module.mssql_database.server_fqdn},1433;Database=${module.mssql_database.database_name};Authentication=Active Directory Managed Identity;User Id=${data.azurerm_user_assigned_identity.app.client_id};Encrypt=True"
+    DataProtection__KeyVaultKeyUri = azurerm_key_vault_key.data_protection.versionless_id
   }
+}
+
+module "key_vault" {
+  source = "../../modules/key_vault"
+
+  name                = "mayfly-${local.environment}"
+  resource_group_name = data.azurerm_resource_group.env.name
+  location            = data.azurerm_resource_group.env.location
+  tenant_id           = data.azurerm_client_config.current.tenant_id
+  tags                = local.tags
+}
+
+resource "azurerm_key_vault_key" "data_protection" {
+  name         = "data-protection"
+  key_vault_id = module.key_vault.id
+  key_type     = "RSA"
+  key_size     = 2048
+  key_opts     = ["wrapKey", "unwrapKey"]
 }
 
 module "mssql_database" {
