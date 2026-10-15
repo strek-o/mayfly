@@ -1,6 +1,8 @@
+using Azure.Identity;
 using Mayfly.Web.Components;
 using Mayfly.Web.Data;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
@@ -15,6 +17,22 @@ builder.Services.AddDbContextFactory<MayflyDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("Mayfly"),
         sql => sql.EnableRetryOnFailure()));
+
+var dataProtection = builder.Services.AddDataProtection()
+    .SetApplicationName("mayfly");
+
+var keyVaultKeyUri = builder.Configuration["DataProtection:KeyVaultKeyUri"];
+if (keyVaultKeyUri is not null)
+{
+    var appIdentityClientId = builder.Configuration["AZURE_CLIENT_ID"]
+        ?? throw new InvalidOperationException("AZURE_CLIENT_ID is required when DataProtection:KeyVaultKeyUri is set.");
+
+    dataProtection
+        .PersistKeysToDbContext<MayflyDbContext>()
+        .ProtectKeysWithAzureKeyVault(
+            new Uri(keyVaultKeyUri),
+            new ManagedIdentityCredential(ManagedIdentityId.FromUserAssignedClientId(appIdentityClientId)));
+}
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
