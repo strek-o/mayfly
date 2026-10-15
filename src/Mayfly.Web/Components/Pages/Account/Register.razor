@@ -1,0 +1,76 @@
+@page "/account/register"
+@using System.ComponentModel.DataAnnotations
+@using Mayfly.Web.Data
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager Navigation
+
+<PageTitle>Register</PageTitle>
+
+<h1>Register</h1>
+
+<EditForm Model="Input" FormName="register" OnValidSubmit="RegisterAsync" method="post">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    @foreach (var error in errors)
+    {
+        <p>@error</p>
+    }
+
+    <label>
+        Email
+        <InputText @bind-Value="Input.Email" type="email" autocomplete="username" />
+    </label>
+
+    <label>
+        Password
+        <InputText @bind-Value="Input.Password" type="password" autocomplete="new-password" />
+    </label>
+
+    <label>
+        Confirm password
+        <InputText @bind-Value="Input.ConfirmPassword" type="password" autocomplete="new-password" />
+    </label>
+
+    <button type="submit">Register</button>
+</EditForm>
+
+@code {
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = default!;
+
+    private IEnumerable<string> errors = [];
+
+    protected override void OnInitialized() => Input ??= new();
+
+    private async Task RegisterAsync()
+    {
+        var user = new ApplicationUser { UserName = Input.Email, Email = Input.Email };
+        var result = await UserManager.CreateAsync(user, Input.Password);
+
+        if (!result.Succeeded)
+        {
+            errors = result.Errors.Select(error => error.Description);
+            return;
+        }
+
+        await SignInManager.SignInAsync(user, isPersistent: false);
+        Navigation.NavigateTo("/");
+    }
+
+    private sealed class InputModel
+    {
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = "";
+
+        [Required]
+        [StringLength(100, MinimumLength = 8)]
+        public string Password { get; set; } = "";
+
+        [Compare(nameof(Password))]
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

@@ -39,6 +39,17 @@ public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task RegisterPage_RendersForm()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/account/register", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("<h1>Register</h1>", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task ForwardedProtoFromIngress_IsTreatedAsHttps()
     {
         var client = factory
