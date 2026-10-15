@@ -29,7 +29,8 @@
 
     <label>
         Expires
-        <InputSelect @bind-Value="Input.Lifetime">
+        <InputSelect @bind-Value="Input.Lifetime" data-enables="custom-expires-at"
+                     data-enables-when="@PasteLifetime.Custom">
             <option value="@PasteLifetime.Forever">Never</option>
             <option value="@PasteLifetime.OneHour">In 1 hour</option>
             <option value="@PasteLifetime.OneDay">In 1 day</option>
@@ -38,9 +39,10 @@
         </InputSelect>
     </label>
 
-    <label class="custom-date">
+    <label>
         Custom date (UTC)
-        <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="Input.CustomExpiresAt" />
+        <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="Input.CustomExpiresAt" id="custom-expires-at"
+                   disabled="@(Input.Lifetime != PasteLifetime.Custom)" />
     </label>
 
     <button type="submit">Create paste</button>
