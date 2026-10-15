@@ -15,11 +15,16 @@ builder.Services.AddDbContextFactory<MayflyDbContext>(options =>
         builder.Configuration.GetConnectionString("Mayfly"),
         sql => sql.EnableRetryOnFailure()));
 
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
+    .AddIdentityCookies();
+
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
         options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
     })
-    .AddEntityFrameworkStores<MayflyDbContext>();
+    .AddEntityFrameworkStores<MayflyDbContext>()
+    .AddSignInManager();
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<MayflyDbContext>(tags: ["ready"]);

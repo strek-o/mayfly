@@ -1,5 +1,12 @@
 @inherits LayoutComponentBase
 
+<header>
+    <AuthorizeView>
+        <Authorized>Signed in as @context.User.Identity?.Name</Authorized>
+        <NotAuthorized>Not signed in</NotAuthorized>
+    </AuthorizeView>
+</header>
+
 @Body
 
 <div id="blazor-error-ui" data-nosnippet>

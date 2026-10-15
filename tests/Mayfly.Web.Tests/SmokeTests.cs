@@ -29,6 +29,16 @@ public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task HomePage_ForAnonymousVisitor_ShowsNotSignedIn()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/", TestContext.Current.CancellationToken);
+
+        Assert.Contains("Not signed in", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task ForwardedProtoFromIngress_IsTreatedAsHttps()
     {
         var client = factory
