@@ -22,6 +22,7 @@ public class MayflyDbContext(DbContextOptions<MayflyDbContext> options)
         modelBuilder.Entity<Paste>(paste =>
         {
             paste.Property(p => p.Title).HasMaxLength(200);
+            paste.HasIndex(p => p.ExpiresAt);
             paste.HasOne<ApplicationUser>().WithMany().HasForeignKey(p => p.OwnerId);
             paste.HasMany(p => p.Threads).WithOne().HasForeignKey(t => t.PasteId);
         });

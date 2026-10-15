@@ -10,5 +10,7 @@ public class Paste
 
     public DateTimeOffset CreatedAt { get; set; }
 
+    public DateTimeOffset? ExpiresAt { get; set; }
+
     public List<PasteThread> Threads { get; } = [];
 }
