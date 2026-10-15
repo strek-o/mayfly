@@ -37,6 +37,7 @@ if (keyVaultKeyUri is not null)
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
     .AddIdentityCookies();
+builder.Services.ConfigureApplicationCookie(options => options.LoginPath = "/account/login");
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {

@@ -3,7 +3,7 @@
 <header>
     <AuthorizeView>
         <Authorized>
-            Signed in as @context.User.Identity?.Name
+            Signed in as @context.User.Identity?.Name · <a href="pastes">My pastes</a>
             <form action="account/logout" method="post">
                 <AntiforgeryToken />
                 <button type="submit">Sign out</button>

@@ -71,6 +71,18 @@ public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task PastesPage_ForAnonymousVisitor_RedirectsToLogin()
+    {
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/pastes", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/account/login", response.Headers.Location?.AbsolutePath);
+        Assert.Equal("?ReturnUrl=%2Fpastes", response.Headers.Location?.Query);
+    }
+
+    [Fact]
     public async Task ForwardedProtoFromIngress_IsTreatedAsHttps()
     {
         var client = factory
