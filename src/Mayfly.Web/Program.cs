@@ -1,5 +1,6 @@
 using Mayfly.Web.Components;
 using Mayfly.Web.Data;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
@@ -57,6 +58,20 @@ app.MapHealthChecks("/healthz", new HealthCheckOptions
 app.MapHealthChecks("/healthz/ready", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("ready")
+});
+
+app.MapPost("/account/logout", async (
+    HttpContext context,
+    IAntiforgery antiforgery,
+    SignInManager<ApplicationUser> signInManager) =>
+{
+    if (!await antiforgery.IsRequestValidAsync(context))
+    {
+        return Results.BadRequest();
+    }
+
+    await signInManager.SignOutAsync();
+    return Results.LocalRedirect("/");
 });
 
 app.MapStaticAssets();

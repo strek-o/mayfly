@@ -50,6 +50,27 @@ public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task LoginPage_RendersForm()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/account/login", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("<h1>Sign in</h1>", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Logout_WithoutAntiforgeryToken_IsRejected()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsync("/account/logout", null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task ForwardedProtoFromIngress_IsTreatedAsHttps()
     {
         var client = factory
