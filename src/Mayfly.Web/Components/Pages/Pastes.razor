@@ -1,8 +1,88 @@
 @page "/pastes"
 @attribute [Authorize]
+@using System.ComponentModel.DataAnnotations
+@using Mayfly.Web.Data
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<MayflyDbContext> DbFactory
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Navigation
 
 <PageTitle>My pastes</PageTitle>
 
 <h1>My pastes</h1>
 
-<p>No pastes yet.</p>
+<EditForm Model="Input" FormName="create-paste" OnValidSubmit="CreateAsync" method="post">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <label>
+        Title
+        <InputText @bind-Value="Input.Title" />
+    </label>
+
+    <button type="submit">Create paste</button>
+</EditForm>
+
+@if (pastes.Count == 0)
+{
+    <p>No pastes yet.</p>
+}
+else
+{
+    <ul>
+        @foreach (var paste in pastes)
+        {
+            <li>@paste.Title · @paste.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</li>
+        }
+    </ul>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = default!;
+
+    private List<Paste> pastes = [];
+
+    private string ownerId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+
+        var user = (await AuthenticationState).User;
+        ownerId = UserManager.GetUserId(user)
+            ?? throw new InvalidOperationException("Signed-in user has no id claim.");
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        pastes = await db.Pastes
+            .AsNoTracking()
+            .Where(paste => paste.OwnerId == ownerId)
+            .OrderByDescending(paste => paste.CreatedAt)
+            .ToListAsync();
+    }
+
+    private async Task CreateAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.Pastes.Add(new Paste
+        {
+            OwnerId = ownerId,
+            Title = Input.Title.Trim(),
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        Navigation.NavigateTo("pastes");
+    }
+
+    private sealed class InputModel
+    {
+        [Required]
+        [StringLength(200)]
+        public string Title { get; set; } = "";
+    }
+}
