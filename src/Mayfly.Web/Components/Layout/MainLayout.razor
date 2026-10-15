@@ -3,7 +3,7 @@
 <header>
     <AuthorizeView>
         <Authorized>
-            Signed in as @context.User.Identity?.Name · <a href="pastes">My pastes</a>
+            Signed in as @context.User.Identity?.Name
             <form action="account/logout" method="post">
                 <AntiforgeryToken />
                 <button type="submit">Sign out</button>
@@ -15,7 +15,17 @@
     </AuthorizeView>
 </header>
 
-@Body
+<div class="layout">
+    <AuthorizeView>
+        <Authorized>
+            <PasteNav />
+        </Authorized>
+    </AuthorizeView>
+
+    <main>
+        @Body
+    </main>
+</div>
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.

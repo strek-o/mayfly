@@ -15,8 +15,6 @@
 
     <h1>@thread.Title</h1>
 
-    <p><a href="pastes/@PasteId">Back to @pasteTitle</a></p>
-
     @if (thread.Entries.Count == 0)
     {
         <p>No entries yet.</p>
@@ -58,8 +56,6 @@
     [SupplyParameterFromForm]
     private InputModel Input { get; set; } = default!;
 
-    private string? pasteTitle;
-
     private PasteThread? thread;
 
     protected override async Task OnInitializedAsync()
@@ -71,13 +67,12 @@
             ?? throw new InvalidOperationException("Signed-in user has no id claim.");
 
         await using var db = await DbFactory.CreateDbContextAsync();
-        pasteTitle = await db.Pastes
+        var pasteIsAccessible = await db.Pastes
             .Where(paste => paste.Id == PasteId && paste.OwnerId == ownerId)
             .WhereNotExpired(DateTimeOffset.UtcNow)
-            .Select(paste => paste.Title)
-            .SingleOrDefaultAsync();
+            .AnyAsync();
 
-        if (pasteTitle is not null)
+        if (pasteIsAccessible)
         {
             thread = await db.Threads
                 .AsNoTracking()

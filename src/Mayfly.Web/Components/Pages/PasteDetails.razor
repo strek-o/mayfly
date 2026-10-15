@@ -17,8 +17,6 @@
 
     <p>@(paste.ExpiresAt is { } expiresAt ? $"Expires {expiresAt:yyyy-MM-dd HH:mm} UTC" : "Never expires")</p>
 
-    <p><a href="pastes">Back to my pastes</a></p>
-
     <h2>Threads</h2>
 
     @if (paste.Threads.Count == 0)
