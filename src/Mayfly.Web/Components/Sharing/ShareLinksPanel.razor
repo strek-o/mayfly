@@ -48,29 +48,42 @@
     }
     else
     {
-        <table>
-            <thead>
-                <tr>
-                    <th>Created</th>
-                    <th>Access</th>
-                    <th>Expires</th>
-                    <th>Views</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var link in links)
-                {
+        <form method="post" @formname="revoke-share-link" @onsubmit="RevokeAsync">
+            <AntiforgeryToken />
+
+            <table>
+                <thead>
                     <tr>
-                        <td>@link.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</td>
-                        <td>@(link.CanAppend ? "Read and add" : "Read only")</td>
-                        <td>@(link.ExpiresAt is { } expiresAt ? $"{expiresAt:yyyy-MM-dd HH:mm} UTC" : "Never")</td>
-                        <td>@link.ViewCount / @(link.MaxViews?.ToString() ?? "∞")</td>
-                        <td>@link.GetStatus(now)</td>
+                        <th>Created</th>
+                        <th>Access</th>
+                        <th>Expires</th>
+                        <th>Views</th>
+                        <th>Status</th>
+                        <th></th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var link in links)
+                    {
+                        var status = link.GetStatus(now);
+
+                        <tr>
+                            <td>@link.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                            <td>@(link.CanAppend ? "Read and add" : "Read only")</td>
+                            <td>@(link.ExpiresAt is { } expiresAt ? $"{expiresAt:yyyy-MM-dd HH:mm} UTC" : "Never")</td>
+                            <td>@link.ViewCount / @(link.MaxViews?.ToString() ?? "∞")</td>
+                            <td>@status</td>
+                            <td>
+                                @if (status == ShareLinkStatus.Active)
+                                {
+                                    <button type="submit" name="RevokeId" value="@link.Id">Revoke</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </form>
     }
 </section>
 
@@ -83,6 +96,9 @@
 
     [SupplyParameterFromForm(FormName = "create-share-link")]
     private LinkInputModel LinkInput { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "revoke-share-link")]
+    private Guid? RevokeId { get; set; }
 
     private List<ShareLink> links = [];
 
@@ -119,6 +135,26 @@
         createdUrl = Navigation.ToAbsoluteUri($"s/{token}").ToString();
         LinkInput = new();
         await LoadLinksAsync();
+    }
+
+    private async Task RevokeAsync()
+    {
+        if (RevokeId is not { } linkId)
+        {
+            return;
+        }
+
+        var revokedAt = DateTimeOffset.UtcNow;
+
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            await db.ShareLinks
+                .Where(link => link.Id == linkId && link.PasteId == PasteId && link.ThreadId == ThreadId)
+                .Where(link => link.RevokedAt == null)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(link => link.RevokedAt, revokedAt));
+        }
+
+        Navigation.NavigateTo(Navigation.Uri);
     }
 
     private async Task LoadLinksAsync()
