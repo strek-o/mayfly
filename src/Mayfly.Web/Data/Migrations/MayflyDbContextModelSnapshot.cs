@@ -166,6 +166,9 @@ namespace Mayfly.Web.Data.Migrations
                     b.Property<Guid>("PasteId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ProtectedToken")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTimeOffset?>("RevokedAt")
                         .HasColumnType("datetimeoffset");
 

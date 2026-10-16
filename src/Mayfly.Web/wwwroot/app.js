@@ -10,6 +10,21 @@ document.addEventListener("change", (event) => {
   }
 });
 
+document.addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-copy]");
+  const source = button && document.getElementById(button.dataset.copy);
+  if (!source) {
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(source.value);
+    button.textContent = "Copied";
+  } catch {
+    source.select();
+  }
+});
+
 const localTimeFormat = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
   timeStyle: "short",

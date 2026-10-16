@@ -36,6 +36,7 @@ if (keyVaultKeyUri is not null)
 }
 
 builder.Services.AddSingleton<ShareSession>();
+builder.Services.AddSingleton<ShareTokenProtector>();
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)

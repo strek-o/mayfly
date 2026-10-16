@@ -10,6 +10,8 @@ public class ShareLink
 
     public required byte[] TokenHash { get; set; }
 
+    public string? ProtectedToken { get; set; }
+
     public bool CanAppend { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }

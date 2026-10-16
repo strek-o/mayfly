@@ -4,16 +4,11 @@
 @using Mayfly.Web.Sharing
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<MayflyDbContext> DbFactory
+@inject ShareTokenProtector TokenProtector
 @inject NavigationManager Navigation
 
 <section>
     <h2>Share links</h2>
-
-    @if (createdUrl is not null)
-    {
-        <p>Copy the new link now. It will not be shown again.</p>
-        <p><input readonly value="@createdUrl" size="70" /></p>
-    }
 
     <EditForm Model="LinkInput" FormName="create-share-link" OnValidSubmit="CreateAsync" method="post">
         <DataAnnotationsValidator />
@@ -59,6 +54,7 @@
             <table>
                 <thead>
                     <tr>
+                        <th>Link</th>
                         <th>Created</th>
                         <th>Access</th>
                         <th>Expires</th>
@@ -73,6 +69,21 @@
                         var status = link.GetStatus(now);
 
                         <tr>
+                            <td>
+                                @if (status != ShareLinkStatus.Active)
+                                {
+                                    <text>—</text>
+                                }
+                                else if (LinkUrl(link) is { } url)
+                                {
+                                    <input id="share-url-@link.Id" readonly value="@url" size="50" />
+                                    <button type="button" data-copy="share-url-@link.Id">Copy</button>
+                                }
+                                else
+                                {
+                                    <text>Not available</text>
+                                }
+                            </td>
                             <td>
                                 <LocalTime Value="link.CreatedAt" />
                             </td>
@@ -118,8 +129,6 @@
 
     private List<ShareLink> links = [];
 
-    private string? createdUrl;
-
     private DateTimeOffset now;
 
     protected override async Task OnInitializedAsync()
@@ -138,6 +147,7 @@
             PasteId = PasteId,
             ThreadId = ThreadId,
             TokenHash = ShareToken.Hash(token),
+            ProtectedToken = TokenProtector.Protect(token),
             CanAppend = LinkInput.CanAppend,
             CreatedAt = createdAt,
             ExpiresAt = PasteExpiration.Calculate(LinkInput.Lifetime, createdAt),
@@ -155,10 +165,13 @@
             await db.SaveChangesAsync();
         }
 
-        createdUrl = Navigation.ToAbsoluteUri($"s/{token}").ToString();
-        LinkInput = new();
-        await LoadLinksAsync();
+        Navigation.NavigateTo(Navigation.Uri);
     }
+
+    private string? LinkUrl(ShareLink link) =>
+        TokenProtector.Unprotect(link.ProtectedToken) is { } token
+            ? Navigation.ToAbsoluteUri($"s/{token}").ToString()
+            : null;
 
     private async Task RevokeAsync()
     {
