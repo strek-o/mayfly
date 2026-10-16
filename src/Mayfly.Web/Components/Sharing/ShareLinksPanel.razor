@@ -192,6 +192,10 @@
         public int? MaxViews { get; set; }
 
         [StringLength(100, MinimumLength = 4)]
-        public string? Password { get; set; }
+        public string? Password
+        {
+            get;
+            set => field = string.IsNullOrEmpty(value) ? null : value;
+        }
     }
 }
