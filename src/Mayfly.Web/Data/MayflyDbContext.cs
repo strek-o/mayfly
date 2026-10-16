@@ -13,6 +13,8 @@ public class MayflyDbContext(DbContextOptions<MayflyDbContext> options)
 
     public DbSet<ThreadEntry> Entries => Set<ThreadEntry>();
 
+    public DbSet<ShareLink> ShareLinks => Set<ShareLink>();
+
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -31,6 +33,15 @@ public class MayflyDbContext(DbContextOptions<MayflyDbContext> options)
         {
             thread.Property(t => t.Title).HasMaxLength(200);
             thread.HasMany(t => t.Entries).WithOne().HasForeignKey(e => e.ThreadId);
+        });
+
+        modelBuilder.Entity<ShareLink>(link =>
+        {
+            link.Property(l => l.TokenHash).HasMaxLength(32).IsFixedLength();
+            link.HasIndex(l => l.TokenHash).IsUnique();
+            link.HasOne<Paste>().WithMany().HasForeignKey(l => l.PasteId);
+            link.HasOne<PasteThread>().WithMany().HasForeignKey(l => l.ThreadId).OnDelete(DeleteBehavior.NoAction);
+            link.ToTable(table => table.HasCheckConstraint("CK_ShareLinks_MaxViews", "[MaxViews] IS NULL OR [MaxViews] > 0"));
         });
     }
 }

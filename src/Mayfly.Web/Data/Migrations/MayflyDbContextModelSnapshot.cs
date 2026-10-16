@@ -142,6 +142,57 @@ namespace Mayfly.Web.Data.Migrations
                     b.ToTable("Threads");
                 });
 
+            modelBuilder.Entity("Mayfly.Web.Data.ShareLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("CanAppend")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("MaxViews")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PasteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("ThreadId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("binary(32)")
+                        .IsFixedLength();
+
+                    b.Property<int>("ViewCount")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PasteId");
+
+                    b.HasIndex("ThreadId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("ShareLinks", t =>
+                        {
+                            t.HasCheckConstraint("CK_ShareLinks_MaxViews", "[MaxViews] IS NULL OR [MaxViews] > 0");
+                        });
+                });
+
             modelBuilder.Entity("Mayfly.Web.Data.ThreadEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -354,6 +405,20 @@ namespace Mayfly.Web.Data.Migrations
                         .HasForeignKey("PasteId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Mayfly.Web.Data.ShareLink", b =>
+                {
+                    b.HasOne("Mayfly.Web.Data.Paste", null)
+                        .WithMany()
+                        .HasForeignKey("PasteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Mayfly.Web.Data.PasteThread", null)
+                        .WithMany()
+                        .HasForeignKey("ThreadId")
+                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("Mayfly.Web.Data.ThreadEntry", b =>
