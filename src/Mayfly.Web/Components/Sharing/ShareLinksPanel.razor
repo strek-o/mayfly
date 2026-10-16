@@ -1,0 +1,146 @@
+@using System.ComponentModel.DataAnnotations
+@using Mayfly.Web.Data
+@using Mayfly.Web.Pastes
+@using Mayfly.Web.Sharing
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<MayflyDbContext> DbFactory
+@inject NavigationManager Navigation
+
+<section>
+    <h2>Share links</h2>
+
+    @if (createdUrl is not null)
+    {
+        <p>Copy the new link now. It will not be shown again.</p>
+        <p><input readonly value="@createdUrl" size="70" /></p>
+    }
+
+    <EditForm Model="LinkInput" FormName="create-share-link" OnValidSubmit="CreateAsync" method="post">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <label>
+            <InputCheckbox @bind-Value="LinkInput.CanAppend" />
+            Visitors can add entries
+        </label>
+
+        <label>
+            Link expires
+            <InputSelect @bind-Value="LinkInput.Lifetime">
+                <option value="@PasteLifetime.Forever">Never</option>
+                <option value="@PasteLifetime.OneHour">In 1 hour</option>
+                <option value="@PasteLifetime.OneDay">In 1 day</option>
+                <option value="@PasteLifetime.SevenDays">In 7 days</option>
+            </InputSelect>
+        </label>
+
+        <label>
+            View limit (empty = unlimited, 1 = burn after read)
+            <InputNumber @bind-Value="LinkInput.MaxViews" min="1" max="1000" />
+        </label>
+
+        <button type="submit">Create link</button>
+    </EditForm>
+
+    @if (links.Count == 0)
+    {
+        <p>No share links yet.</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Created</th>
+                    <th>Access</th>
+                    <th>Expires</th>
+                    <th>Views</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var link in links)
+                {
+                    <tr>
+                        <td>@link.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                        <td>@(link.CanAppend ? "Read and add" : "Read only")</td>
+                        <td>@(link.ExpiresAt is { } expiresAt ? $"{expiresAt:yyyy-MM-dd HH:mm} UTC" : "Never")</td>
+                        <td>@link.ViewCount / @(link.MaxViews?.ToString() ?? "∞")</td>
+                        <td>@link.GetStatus(now)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public Guid PasteId { get; set; }
+
+    [Parameter]
+    public Guid? ThreadId { get; set; }
+
+    [SupplyParameterFromForm(FormName = "create-share-link")]
+    private LinkInputModel LinkInput { get; set; } = default!;
+
+    private List<ShareLink> links = [];
+
+    private string? createdUrl;
+
+    private DateTimeOffset now;
+
+    protected override async Task OnInitializedAsync()
+    {
+        LinkInput ??= new();
+        await LoadLinksAsync();
+    }
+
+    private async Task CreateAsync()
+    {
+        var token = ShareToken.Generate();
+        var createdAt = DateTimeOffset.UtcNow;
+
+        await using (var db = await DbFactory.CreateDbContextAsync())
+        {
+            db.ShareLinks.Add(new ShareLink
+            {
+                PasteId = PasteId,
+                ThreadId = ThreadId,
+                TokenHash = ShareToken.Hash(token),
+                CanAppend = LinkInput.CanAppend,
+                CreatedAt = createdAt,
+                ExpiresAt = PasteExpiration.Calculate(LinkInput.Lifetime, createdAt),
+                MaxViews = LinkInput.MaxViews
+            });
+            await db.SaveChangesAsync();
+        }
+
+        createdUrl = Navigation.ToAbsoluteUri($"s/{token}").ToString();
+        LinkInput = new();
+        await LoadLinksAsync();
+    }
+
+    private async Task LoadLinksAsync()
+    {
+        now = DateTimeOffset.UtcNow;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        links = await db.ShareLinks
+            .AsNoTracking()
+            .Where(link => link.PasteId == PasteId && link.ThreadId == ThreadId)
+            .OrderByDescending(link => link.CreatedAt)
+            .ToListAsync();
+    }
+
+    private sealed class LinkInputModel
+    {
+        public bool CanAppend { get; set; }
+
+        [AllowedValues(PasteLifetime.Forever, PasteLifetime.OneHour, PasteLifetime.OneDay, PasteLifetime.SevenDays)]
+        public PasteLifetime Lifetime { get; set; } = PasteLifetime.SevenDays;
+
+        [Range(1, 1000)]
+        public int? MaxViews { get; set; }
+    }
+}

@@ -44,6 +44,8 @@
 
         <button type="submit">Add thread</button>
     </EditForm>
+
+    <ShareLinksPanel PasteId="paste.Id" />
 }
 
 @code {
@@ -53,7 +55,7 @@
     [CascadingParameter]
     private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
 
-    [SupplyParameterFromForm]
+    [SupplyParameterFromForm(FormName = "create-thread")]
     private InputModel Input { get; set; } = default!;
 
     private Paste? paste;
