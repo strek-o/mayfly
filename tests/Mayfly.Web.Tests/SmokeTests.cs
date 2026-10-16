@@ -83,6 +83,16 @@ public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task SharePage_WithMalformedToken_ReturnsNotFound()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/s/not-a-real-token", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task ForwardedProtoFromIngress_IsTreatedAsHttps()
     {
         var client = factory

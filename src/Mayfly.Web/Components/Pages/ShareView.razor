@@ -1,0 +1,133 @@
+@page "/s/{Token}"
+@using Mayfly.Web.Data
+@using Mayfly.Web.Pastes
+@using Mayfly.Web.Sharing
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<MayflyDbContext> DbFactory
+@inject NavigationManager Navigation
+
+<PageTitle>Shared paste</PageTitle>
+
+<HeadContent>
+    <meta name="robots" content="noindex" />
+</HeadContent>
+
+@if (content is not null)
+{
+    <h1>@content.Title</h1>
+
+    @foreach (var thread in content.Threads)
+    {
+        <section>
+            <h2>@thread.Title</h2>
+
+            @if (thread.Entries.Count == 0)
+            {
+                <p>No entries yet.</p>
+            }
+
+            @foreach (var entry in thread.Entries)
+            {
+                <article>
+                    <pre>@entry.Content</pre>
+                    <small>@entry.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</small>
+                </article>
+            }
+        </section>
+    }
+}
+else if (link is not null)
+{
+    <h1>Shared paste</h1>
+
+    @if (link.MaxViews is { } maxViews)
+    {
+        var remaining = maxViews - link.ViewCount;
+        <p>
+            @(remaining == 1
+                ? "This link works only once. The content will not be available again after you open it."
+                : $"This link can be opened {remaining} more times.")
+        </p>
+    }
+
+    <form method="post" @formname="reveal" @onsubmit="RevealAsync">
+        <AntiforgeryToken />
+        <button type="submit">Show content</button>
+    </form>
+}
+
+@code {
+    [Parameter]
+    public string Token { get; set; } = "";
+
+    private ShareLink? link;
+
+    private SharedContent? content;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ShareToken.IsWellFormed(Token))
+        {
+            var tokenHash = ShareToken.Hash(Token);
+            var now = DateTimeOffset.UtcNow;
+
+            await using var db = await DbFactory.CreateDbContextAsync();
+            var livePastes = db.Pastes.WhereNotExpired(now);
+            link = await db.ShareLinks
+                .AsNoTracking()
+                .Where(l => l.TokenHash == tokenHash)
+                .WhereActive(now)
+                .Where(l => livePastes.Any(paste => paste.Id == l.PasteId))
+                .SingleOrDefaultAsync();
+        }
+
+        if (link is null)
+        {
+            Navigation.NotFound();
+        }
+    }
+
+    private async Task RevealAsync()
+    {
+        if (link is null)
+        {
+            return;
+        }
+
+        var linkId = link.Id;
+        var pasteId = link.PasteId;
+        var threadId = link.ThreadId;
+        var now = DateTimeOffset.UtcNow;
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var livePastes = db.Pastes.WhereNotExpired(now);
+        var consumed = await db.ShareLinks
+            .Where(l => l.Id == linkId)
+            .WhereActive(now)
+            .Where(l => livePastes.Any(paste => paste.Id == l.PasteId))
+            .ExecuteUpdateAsync(setters => setters.SetProperty(l => l.ViewCount, l => l.ViewCount + 1));
+
+        if (consumed == 0)
+        {
+            link = null;
+            Navigation.NotFound();
+            return;
+        }
+
+        var title = await db.Pastes
+            .Where(paste => paste.Id == pasteId)
+            .Select(paste => paste.Title)
+            .SingleAsync();
+
+        var threads = await db.Threads
+            .AsNoTracking()
+            .Where(thread => thread.PasteId == pasteId && (threadId == null || thread.Id == threadId))
+            .Include(thread => thread.Entries.OrderBy(entry => entry.CreatedAt))
+            .OrderBy(thread => thread.CreatedAt)
+            .ToListAsync();
+
+        content = new SharedContent(title, threads);
+    }
+
+    private sealed record SharedContent(string Title, List<PasteThread> Threads);
+}
