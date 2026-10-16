@@ -52,6 +52,20 @@ else if (link is not null)
 
     <form method="post" @formname="reveal" @onsubmit="RevealAsync">
         <AntiforgeryToken />
+
+        @if (link.PasswordHash is not null)
+        {
+            @if (passwordRejected)
+            {
+                <p>Wrong password.</p>
+            }
+
+            <label>
+                Password
+                <input type="password" name="Password" autocomplete="off" />
+            </label>
+        }
+
         <button type="submit">Show content</button>
     </form>
 }
@@ -60,9 +74,14 @@ else if (link is not null)
     [Parameter]
     public string Token { get; set; } = "";
 
+    [SupplyParameterFromForm(FormName = "reveal")]
+    private string? Password { get; set; }
+
     private ShareLink? link;
 
     private SharedContent? content;
+
+    private bool passwordRejected;
 
     protected override async Task OnInitializedAsync()
     {
@@ -91,6 +110,12 @@ else if (link is not null)
     {
         if (link is null)
         {
+            return;
+        }
+
+        if (!ShareLinkPassword.Verify(link, Password))
+        {
+            passwordRejected = true;
             return;
         }
 

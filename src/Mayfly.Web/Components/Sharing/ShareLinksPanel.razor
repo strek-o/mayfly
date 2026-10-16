@@ -39,6 +39,11 @@
             <InputNumber @bind-Value="LinkInput.MaxViews" min="1" max="1000" />
         </label>
 
+        <label>
+            Password (optional)
+            <InputText @bind-Value="LinkInput.Password" type="password" autocomplete="new-password" />
+        </label>
+
         <button type="submit">Create link</button>
     </EditForm>
 
@@ -69,7 +74,7 @@
 
                         <tr>
                             <td>@link.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</td>
-                            <td>@(link.CanAppend ? "Read and add" : "Read only")</td>
+                            <td>@(link.CanAppend ? "Read and add" : "Read only")@(link.PasswordHash is null ? "" : " · password")</td>
                             <td>@(link.ExpiresAt is { } expiresAt ? $"{expiresAt:yyyy-MM-dd HH:mm} UTC" : "Never")</td>
                             <td>@link.ViewCount / @(link.MaxViews?.ToString() ?? "∞")</td>
                             <td>@status</td>
@@ -117,18 +122,25 @@
         var token = ShareToken.Generate();
         var createdAt = DateTimeOffset.UtcNow;
 
+        var link = new ShareLink
+        {
+            PasteId = PasteId,
+            ThreadId = ThreadId,
+            TokenHash = ShareToken.Hash(token),
+            CanAppend = LinkInput.CanAppend,
+            CreatedAt = createdAt,
+            ExpiresAt = PasteExpiration.Calculate(LinkInput.Lifetime, createdAt),
+            MaxViews = LinkInput.MaxViews
+        };
+
+        if (!string.IsNullOrEmpty(LinkInput.Password))
+        {
+            link.PasswordHash = ShareLinkPassword.Hash(link, LinkInput.Password);
+        }
+
         await using (var db = await DbFactory.CreateDbContextAsync())
         {
-            db.ShareLinks.Add(new ShareLink
-            {
-                PasteId = PasteId,
-                ThreadId = ThreadId,
-                TokenHash = ShareToken.Hash(token),
-                CanAppend = LinkInput.CanAppend,
-                CreatedAt = createdAt,
-                ExpiresAt = PasteExpiration.Calculate(LinkInput.Lifetime, createdAt),
-                MaxViews = LinkInput.MaxViews
-            });
+            db.ShareLinks.Add(link);
             await db.SaveChangesAsync();
         }
 
@@ -178,5 +190,8 @@
 
         [Range(1, 1000)]
         public int? MaxViews { get; set; }
+
+        [StringLength(100, MinimumLength = 4)]
+        public string? Password { get; set; }
     }
 }
