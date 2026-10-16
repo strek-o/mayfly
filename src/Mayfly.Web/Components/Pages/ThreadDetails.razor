@@ -25,25 +25,26 @@
         {
             <article>
                 <pre>@entry.Content</pre>
-                <small>@entry.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</small>
-            </article>
+                <small>@(entry.AuthorName is { } author ? $"{author} (guest) · " : "")@entry.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+                    UTC</small>
+                </article>
+            }
         }
+
+        <EditForm Model="Input" FormName="add-entry" OnValidSubmit="AddEntryAsync" method="post">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <label>
+                New entry
+                <InputTextArea @bind-Value="Input.Content" rows="10" />
+            </label>
+
+            <button type="submit">Add entry</button>
+        </EditForm>
+
+        <ShareLinksPanel PasteId="PasteId" ThreadId="thread.Id" />
     }
-
-    <EditForm Model="Input" FormName="add-entry" OnValidSubmit="AddEntryAsync" method="post">
-        <DataAnnotationsValidator />
-        <ValidationSummary />
-
-        <label>
-            New entry
-            <InputTextArea @bind-Value="Input.Content" rows="10" />
-        </label>
-
-        <button type="submit">Add entry</button>
-    </EditForm>
-
-    <ShareLinksPanel PasteId="PasteId" ThreadId="thread.Id" />
-}
 
 @code {
     [Parameter]

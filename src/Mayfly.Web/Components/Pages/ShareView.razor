@@ -30,15 +30,77 @@
             {
                 <article>
                     <pre>@entry.Content</pre>
-                    <small>@entry.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</small>
+                    <small>@(entry.AuthorName ?? "Owner") · @entry.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</small>
                 </article>
             }
         </section>
+    }
+
+    @if (link!.CanAppend && content.Threads.Count > 0)
+    {
+        @if (content.CanAddEntries)
+        {
+            <form method="post" action="@($"s/{Token}/entries")">
+                <AntiforgeryToken />
+
+                <h2>Add an entry</h2>
+
+                @if (content.Threads.Count == 1)
+                {
+                    <input type="hidden" name="ThreadId" value="@content.Threads[0].Id" />
+                }
+                else
+                {
+                    <label>
+                        Thread
+                        <select name="ThreadId">
+                            @foreach (var thread in content.Threads)
+                            {
+                                <option value="@thread.Id">@thread.Title</option>
+                            }
+                        </select>
+                    </label>
+                }
+
+                <label>
+                    Your name (optional)
+                    <input name="AuthorName" maxlength="@GuestEntryEndpoint.MaxAuthorNameLength" />
+                </label>
+
+                <label>
+                    Entry
+                    <textarea name="Content" rows="8" required maxlength="@GuestEntryEndpoint.MaxContentLength"></textarea>
+                </label>
+
+                @if (link.PasswordHash is not null)
+                {
+                    <label>
+                        Password
+                        <input type="password" name="Password" autocomplete="off" />
+                    </label>
+                }
+
+                <button type="submit">Add entry</button>
+            </form>
+        }
+        else
+        {
+            <p>This link has no views left, so new entries cannot be added.</p>
+        }
     }
 }
 else if (link is not null)
 {
     <h1>Shared paste</h1>
+
+    @if (EntryStatus == "added")
+    {
+        <p>Your entry was added.</p>
+    }
+    else if (EntryStatus == "wrong-password")
+    {
+        <p>Wrong password. Your entry was not added.</p>
+    }
 
     @if (link.MaxViews is { } maxViews)
     {
@@ -73,6 +135,9 @@ else if (link is not null)
 @code {
     [Parameter]
     public string Token { get; set; } = "";
+
+    [SupplyParameterFromQuery(Name = "entry")]
+    public string? EntryStatus { get; set; }
 
     [SupplyParameterFromForm(FormName = "reveal")]
     private string? Password { get; set; }
@@ -151,8 +216,9 @@ else if (link is not null)
             .OrderBy(thread => thread.CreatedAt)
             .ToListAsync();
 
-        content = new SharedContent(title, threads);
+        var canAddEntries = link.MaxViews is null || link.ViewCount + 1 < link.MaxViews;
+        content = new SharedContent(title, threads, canAddEntries);
     }
 
-    private sealed record SharedContent(string Title, List<PasteThread> Threads);
+    private sealed record SharedContent(string Title, List<PasteThread> Threads, bool CanAddEntries);
 }

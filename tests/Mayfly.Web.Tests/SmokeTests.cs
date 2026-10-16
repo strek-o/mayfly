@@ -93,6 +93,21 @@ public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task GuestEntry_WithoutAntiforgeryToken_IsRejected()
+    {
+        var client = factory.CreateClient();
+        var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["ThreadId"] = Guid.NewGuid().ToString(),
+            ["Content"] = "spam"
+        });
+
+        var response = await client.PostAsync("/s/not-a-real-token/entries", form, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task ForwardedProtoFromIngress_IsTreatedAsHttps()
     {
         var client = factory

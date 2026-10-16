@@ -1,6 +1,7 @@
 using Azure.Identity;
 using Mayfly.Web.Components;
 using Mayfly.Web.Data;
+using Mayfly.Web.Sharing;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -92,6 +93,8 @@ app.MapPost("/account/logout", async (
     await signInManager.SignOutAsync();
     return Results.LocalRedirect("/");
 });
+
+app.MapGuestEntryEndpoint();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
