@@ -8,5 +8,7 @@ public class ThreadEntry
 
     public required string Content { get; set; }
 
+    public string? AuthorName { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 }

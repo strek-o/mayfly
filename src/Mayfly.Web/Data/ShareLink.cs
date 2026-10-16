@@ -21,4 +21,6 @@ public class ShareLink
     public int ViewCount { get; set; }
 
     public DateTimeOffset? RevokedAt { get; set; }
+
+    public string? PasswordHash { get; set; }
 }

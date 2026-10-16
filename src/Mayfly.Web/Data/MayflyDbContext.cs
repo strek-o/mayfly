@@ -35,6 +35,11 @@ public class MayflyDbContext(DbContextOptions<MayflyDbContext> options)
             thread.HasMany(t => t.Entries).WithOne().HasForeignKey(e => e.ThreadId);
         });
 
+        modelBuilder.Entity<ThreadEntry>(entry =>
+        {
+            entry.Property(e => e.AuthorName).HasMaxLength(50);
+        });
+
         modelBuilder.Entity<ShareLink>(link =>
         {
             link.Property(l => l.TokenHash).HasMaxLength(32).IsFixedLength();

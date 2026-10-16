@@ -160,6 +160,9 @@ namespace Mayfly.Web.Data.Migrations
                     b.Property<int?>("MaxViews")
                         .HasColumnType("int");
 
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid>("PasteId")
                         .HasColumnType("uniqueidentifier");
 
@@ -198,6 +201,10 @@ namespace Mayfly.Web.Data.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AuthorName")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("Content")
                         .IsRequired()
