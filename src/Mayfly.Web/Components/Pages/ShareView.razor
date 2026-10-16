@@ -4,6 +4,7 @@
 @using Mayfly.Web.Sharing
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<MayflyDbContext> DbFactory
+@inject ShareSession Session
 @inject NavigationManager Navigation
 
 <PageTitle>Shared paste</PageTitle>
@@ -28,7 +29,7 @@
 
             @foreach (var entry in thread.Entries)
             {
-                <article>
+                <article id="entry-@entry.Id">
                     <pre>@entry.Content</pre>
                     <small>@(entry.AuthorName ?? "Owner") ·
                         <LocalTime Value="entry.CreatedAt" />
@@ -40,68 +41,49 @@
 
     @if (link!.CanAppend && content.Threads.Count > 0)
     {
-        @if (content.CanAddEntries)
-        {
-            <form method="post" action="@($"s/{Token}/entries")">
-                <AntiforgeryToken />
+        <form method="post" action="@($"s/{Token}/entries")">
+            <AntiforgeryToken />
 
-                <h2>Add an entry</h2>
+            <h2>Add an entry</h2>
 
-                @if (content.Threads.Count == 1)
-                {
-                    <input type="hidden" name="ThreadId" value="@content.Threads[0].Id" />
-                }
-                else
-                {
-                    <label>
-                        Thread
-                        <select name="ThreadId">
-                            @foreach (var thread in content.Threads)
-                            {
-                                <option value="@thread.Id">@thread.Title</option>
-                            }
-                        </select>
-                    </label>
-                }
-
+            @if (content.Threads.Count == 1)
+            {
+                <input type="hidden" name="ThreadId" value="@content.Threads[0].Id" />
+            }
+            else
+            {
                 <label>
-                    Your name (optional)
-                    <input name="AuthorName" maxlength="@GuestEntryEndpoint.MaxAuthorNameLength" />
+                    Thread
+                    <select name="ThreadId">
+                        @foreach (var thread in content.Threads)
+                        {
+                            <option value="@thread.Id">@thread.Title</option>
+                        }
+                    </select>
                 </label>
+            }
 
-                <label>
-                    Entry
-                    <textarea name="Content" rows="8" required maxlength="@GuestEntryEndpoint.MaxContentLength"></textarea>
-                </label>
+            <label>
+                Your name (optional)
+                <input name="AuthorName" maxlength="@GuestEntryEndpoint.MaxAuthorNameLength" />
+            </label>
 
-                @if (link.PasswordHash is not null)
-                {
-                    <label>
-                        Password
-                        <input type="password" name="Password" autocomplete="off" />
-                    </label>
-                }
+            <label>
+                Entry
+                <textarea name="Content" rows="8" required maxlength="@GuestEntryEndpoint.MaxContentLength"></textarea>
+            </label>
 
-                <button type="submit">Add entry</button>
-            </form>
-        }
-        else
-        {
-            <p>This link has no views left, so new entries cannot be added.</p>
-        }
+            <button type="submit">Add entry</button>
+        </form>
     }
 }
 else if (link is not null)
 {
     <h1>Shared paste</h1>
 
-    @if (EntryStatus == "added")
+    @if (EntryStatus == "session-expired")
     {
-        <p>Your entry was added.</p>
-    }
-    else if (EntryStatus == "wrong-password")
-    {
-        <p>Wrong password. Your entry was not added.</p>
+        <p>Your session has expired. Open the content again to add entries.</p>
     }
 
     @if (link.MaxViews is { } maxViews)
@@ -109,7 +91,7 @@ else if (link is not null)
         var remaining = maxViews - link.ViewCount;
         <p>
             @(remaining == 1
-                ? "This link works only once. The content will not be available again after you open it."
+                ? "This link works only once. After you open it, nobody else can."
                 : $"This link can be opened {remaining} more times.")
         </p>
     }
@@ -138,6 +120,9 @@ else if (link is not null)
     [Parameter]
     public string Token { get; set; } = "";
 
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
     [SupplyParameterFromQuery(Name = "entry")]
     public string? EntryStatus { get; set; }
 
@@ -162,9 +147,21 @@ else if (link is not null)
             link = await db.ShareLinks
                 .AsNoTracking()
                 .Where(l => l.TokenHash == tokenHash)
-                .WhereActive(now)
+                .WhereOpen(now)
                 .Where(l => livePastes.Any(paste => paste.Id == l.PasteId))
                 .SingleOrDefaultAsync();
+
+            if (link is not null && Session.IsActive(HttpContext, link.Id))
+            {
+                Session.Start(HttpContext, link.Id, Token);
+                content = await LoadContentAsync(db, link);
+                return;
+            }
+
+            if (link?.GetStatus(now) != ShareLinkStatus.Active)
+            {
+                link = null;
+            }
         }
 
         if (link is null)
@@ -187,8 +184,6 @@ else if (link is not null)
         }
 
         var linkId = link.Id;
-        var pasteId = link.PasteId;
-        var threadId = link.ThreadId;
         var now = DateTimeOffset.UtcNow;
 
         await using var db = await DbFactory.CreateDbContextAsync();
@@ -206,6 +201,15 @@ else if (link is not null)
             return;
         }
 
+        Session.Start(HttpContext, linkId, Token);
+        Navigation.NavigateTo($"s/{Token}");
+    }
+
+    private static async Task<SharedContent> LoadContentAsync(MayflyDbContext db, ShareLink link)
+    {
+        var pasteId = link.PasteId;
+        var threadId = link.ThreadId;
+
         var title = await db.Pastes
             .Where(paste => paste.Id == pasteId)
             .Select(paste => paste.Title)
@@ -218,9 +222,8 @@ else if (link is not null)
             .OrderBy(thread => thread.CreatedAt)
             .ToListAsync();
 
-        var canAddEntries = link.MaxViews is null || link.ViewCount + 1 < link.MaxViews;
-        content = new SharedContent(title, threads, canAddEntries);
+        return new SharedContent(title, threads);
     }
 
-    private sealed record SharedContent(string Title, List<PasteThread> Threads, bool CanAddEntries);
+    private sealed record SharedContent(string Title, List<PasteThread> Threads);
 }

@@ -38,6 +38,19 @@ public class ShareLinkRulesTests
         Assert.Equal(3, active.Count);
     }
 
+    [Fact]
+    public void WhereOpen_KeepsActiveAndUsedUpLinks()
+    {
+        var links = Cases.Select(row => row.Data.Item2).ToList();
+
+        var open = links.AsQueryable().WhereOpen(Now).ToList();
+
+        Assert.Equal(
+            links.Where(link => link.GetStatus(Now) is ShareLinkStatus.Active or ShareLinkStatus.UsedUp),
+            open);
+        Assert.Equal(4, open.Count);
+    }
+
     private static ShareLink NewLink(
         DateTimeOffset? expiresAt = null,
         int? maxViews = null,

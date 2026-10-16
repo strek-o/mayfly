@@ -20,6 +20,8 @@ public static class GuestEntryEndpoint
     private static async Task<IResult> AddEntryAsync(
         string token,
         [FromForm] GuestEntryForm form,
+        HttpContext context,
+        ShareSession session,
         IDbContextFactory<MayflyDbContext> dbFactory)
     {
         if (!ShareToken.IsWellFormed(token))
@@ -43,7 +45,7 @@ public static class GuestEntryEndpoint
         var link = await db.ShareLinks
             .AsNoTracking()
             .Where(l => l.TokenHash == tokenHash && l.CanAppend)
-            .WhereActive(now)
+            .WhereOpen(now)
             .Where(l => livePastes.Any(paste => paste.Id == l.PasteId))
             .SingleOrDefaultAsync();
 
@@ -52,9 +54,9 @@ public static class GuestEntryEndpoint
             return Results.NotFound();
         }
 
-        if (!ShareLinkPassword.Verify(link, form.Password))
+        if (!session.IsActive(context, link.Id))
         {
-            return Results.LocalRedirect($"/s/{token}?entry=wrong-password");
+            return Results.LocalRedirect($"/s/{token}?entry=session-expired");
         }
 
         var threadInScope = await db.Threads.AnyAsync(thread =>
@@ -67,16 +69,18 @@ public static class GuestEntryEndpoint
             return Results.NotFound();
         }
 
-        db.Entries.Add(new ThreadEntry
+        var entry = new ThreadEntry
         {
             ThreadId = form.ThreadId,
             Content = form.Content,
             AuthorName = authorName,
             CreatedAt = now
-        });
+        };
+        db.Entries.Add(entry);
         await db.SaveChangesAsync();
 
-        return Results.LocalRedirect($"/s/{token}?entry=added");
+        session.Start(context, link.Id, token);
+        return Results.LocalRedirect($"/s/{token}#entry-{entry.Id}");
     }
 
     public sealed class GuestEntryForm
@@ -86,7 +90,5 @@ public static class GuestEntryEndpoint
         public string? Content { get; set; }
 
         public string? AuthorName { get; set; }
-
-        public string? Password { get; set; }
     }
 }

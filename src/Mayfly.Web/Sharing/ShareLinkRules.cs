@@ -10,9 +10,9 @@ public static class ShareLinkRules
         : link.ViewCount >= link.MaxViews ? ShareLinkStatus.UsedUp
         : ShareLinkStatus.Active;
 
+    public static IQueryable<ShareLink> WhereOpen(this IQueryable<ShareLink> links, DateTimeOffset now) =>
+        links.Where(link => link.RevokedAt == null && (link.ExpiresAt == null || link.ExpiresAt > now));
+
     public static IQueryable<ShareLink> WhereActive(this IQueryable<ShareLink> links, DateTimeOffset now) =>
-        links.Where(link =>
-            link.RevokedAt == null
-            && (link.ExpiresAt == null || link.ExpiresAt > now)
-            && (link.MaxViews == null || link.ViewCount < link.MaxViews));
+        links.WhereOpen(now).Where(link => link.MaxViews == null || link.ViewCount < link.MaxViews);
 }

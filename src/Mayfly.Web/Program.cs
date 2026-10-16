@@ -35,6 +35,8 @@ if (keyVaultKeyUri is not null)
             new ManagedIdentityCredential(ManagedIdentityId.FromUserAssignedClientId(appIdentityClientId)));
 }
 
+builder.Services.AddSingleton<ShareSession>();
+
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
     .AddIdentityCookies();
