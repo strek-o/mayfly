@@ -73,9 +73,20 @@
                         var status = link.GetStatus(now);
 
                         <tr>
-                            <td>@link.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC</td>
+                            <td>
+                                <LocalTime Value="link.CreatedAt" />
+                            </td>
                             <td>@(link.CanAppend ? "Read and add" : "Read only")@(link.PasswordHash is null ? "" : " · password")</td>
-                            <td>@(link.ExpiresAt is { } expiresAt ? $"{expiresAt:yyyy-MM-dd HH:mm} UTC" : "Never")</td>
+                            <td>
+                                @if (link.ExpiresAt is { } expiresAt)
+                                {
+                                    <LocalTime Value="expiresAt" />
+                                }
+                                else
+                                {
+                                    <text>Never</text>
+                                }
+                            </td>
                             <td>@link.ViewCount / @(link.MaxViews?.ToString() ?? "∞")</td>
                             <td>@status</td>
                             <td>

@@ -15,7 +15,16 @@
 
     <h1>@paste.Title</h1>
 
-    <p>@(paste.ExpiresAt is { } expiresAt ? $"Expires {expiresAt:yyyy-MM-dd HH:mm} UTC" : "Never expires")</p>
+    @if (paste.ExpiresAt is { } expiresAt)
+    {
+        <p>Expires
+            <LocalTime Value="expiresAt" />
+        </p>
+    }
+    else
+    {
+        <p>Never expires</p>
+    }
 
     <h2>Threads</h2>
 

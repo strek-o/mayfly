@@ -3,6 +3,7 @@
 @using System.ComponentModel.DataAnnotations
 @using Mayfly.Web.Data
 @using Mayfly.Web.Pastes
+@using Mayfly.Web.Time
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<MayflyDbContext> DbFactory
@@ -40,10 +41,12 @@
     </label>
 
     <label>
-        Custom date (UTC)
+        Custom date
         <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="Input.CustomExpiresAt" id="custom-expires-at"
                    disabled="@(Input.Lifetime != PasteLifetime.Custom)" />
     </label>
+
+    <input type="hidden" name="Input.TimeZone" data-time-zone />
 
     <button type="submit">Create paste</button>
 </EditForm>
@@ -59,8 +62,18 @@ else
         {
             <li>
                 <a href="pastes/@paste.Id">@paste.Title</a>
-                · created @paste.CreatedAt.ToString("yyyy-MM-dd HH:mm") UTC
-                · @(paste.ExpiresAt is { } expiresAt ? $"expires {expiresAt:yyyy-MM-dd HH:mm} UTC" : "never expires")
+                · created
+                <LocalTime Value="paste.CreatedAt" />
+                · @if (paste.ExpiresAt is { } expiresAt)
+                {
+                    <text>expires
+                        <LocalTime Value="expiresAt" />
+                    </text>
+                }
+                else
+                {
+                    <text>never expires</text>
+                }
             </li>
         }
     </ul>
@@ -100,7 +113,7 @@ else
     {
         var now = DateTimeOffset.UtcNow;
         DateTimeOffset? customExpiresAt = Input.CustomExpiresAt is { } custom
-            ? new DateTimeOffset(custom, TimeSpan.Zero)
+            ? LocalDateTime.ToUtc(custom, Input.TimeZone)
             : null;
 
         if (Input.Lifetime == PasteLifetime.Custom && !(customExpiresAt > now))
@@ -131,5 +144,7 @@ else
         public PasteLifetime Lifetime { get; set; } = PasteLifetime.Forever;
 
         public DateTime? CustomExpiresAt { get; set; }
+
+        public string? TimeZone { get; set; }
     }
 }

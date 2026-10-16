@@ -9,3 +9,22 @@ document.addEventListener("change", (event) => {
     target.disabled = select.value !== select.dataset.enablesWhen;
   }
 });
+
+const localTimeFormat = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+function applyLocalTime() {
+  for (const element of document.querySelectorAll("time[data-local-time]")) {
+    element.textContent = localTimeFormat.format(new Date(element.dateTime));
+  }
+
+  for (const input of document.querySelectorAll("input[data-time-zone]")) {
+    input.value = timeZone;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", applyLocalTime);
+Blazor.addEventListener("enhancedload", applyLocalTime);

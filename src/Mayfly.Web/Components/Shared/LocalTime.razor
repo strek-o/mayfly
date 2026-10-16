@@ -1,0 +1,7 @@
+<time datetime="@Value.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")"
+      data-local-time>@Value.UtcDateTime.ToString("yyyy-MM-dd HH:mm") UTC</time>
+
+@code {
+    [Parameter, EditorRequired]
+    public DateTimeOffset Value { get; set; }
+}
