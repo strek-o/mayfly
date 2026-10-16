@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Mayfly.Web.Data.Migrations
 {
     [DbContext(typeof(MayflyDbContext))]
-    [Migration("20261016110056_AddShareLinks")]
+    [Migration("20261016112214_AddShareLinks")]
     partial class AddShareLinks
     {
         /// <inheritdoc />
