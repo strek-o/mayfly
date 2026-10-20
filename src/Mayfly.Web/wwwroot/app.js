@@ -25,6 +25,75 @@ document.addEventListener("click", async (event) => {
   }
 });
 
+document.addEventListener("submit", async (event) => {
+  const form = event.target;
+  if (!(form instanceof HTMLFormElement) || !form.hasAttribute("data-upload")) {
+    return;
+  }
+
+  event.preventDefault();
+  const file = form.elements.file.files[0];
+  const status = form.querySelector("[data-upload-status]");
+  const button = form.querySelector("button[type=submit]");
+  if (!file) {
+    return;
+  }
+
+  if (file.size > Number(form.dataset.maxSize)) {
+    status.textContent = "File is too large.";
+    return;
+  }
+
+  button.disabled = true;
+  status.textContent = `Uploading ${file.name}…`;
+
+  try {
+    const antiforgery = form.elements.__RequestVerificationToken.value;
+    const contentType = file.type || "application/octet-stream";
+
+    const started = await postForm(form.action, antiforgery, {
+      FileName: file.name,
+      ContentType: contentType,
+      Size: file.size,
+    });
+    const { id, uploadUrl } = await started.json();
+
+    const uploaded = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "x-ms-blob-type": "BlockBlob", "content-type": contentType },
+      body: file,
+    });
+    if (!uploaded.ok) {
+      throw new Error(`Upload failed with ${uploaded.status}`);
+    }
+
+    await postForm(`${form.action}/${id}/complete`, antiforgery, {});
+    location.reload();
+  } catch {
+    status.textContent = "Upload failed. Try again.";
+    button.disabled = false;
+  }
+});
+
+async function postForm(url, antiforgery, fields) {
+  const body = new FormData();
+  body.append("__RequestVerificationToken", antiforgery);
+  for (const [name, value] of Object.entries(fields)) {
+    body.append(name, value);
+  }
+
+  const response = await fetch(url, {
+    method: "POST",
+    body,
+    redirect: "error",
+  });
+  if (!response.ok) {
+    throw new Error(`Request failed with ${response.status}`);
+  }
+
+  return response;
+}
+
 const localTimeFormat = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
   timeStyle: "short",

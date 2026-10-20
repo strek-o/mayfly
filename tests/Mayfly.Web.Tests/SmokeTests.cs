@@ -82,6 +82,19 @@ public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<
         Assert.Equal("?ReturnUrl=%2Fpastes", response.Headers.Location?.Query);
     }
 
+    [Theory]
+    [InlineData("/files/uploads")]
+    [InlineData("/files/uploads/9c0c4b4e-0a43-4a43-9a5e-6a3f0f5f2d11/complete")]
+    public async Task FileUpload_ForAnonymousVisitor_RedirectsToLogin(string url)
+    {
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.PostAsync(url, null, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/account/login", response.Headers.Location?.AbsolutePath);
+    }
+
     [Fact]
     public async Task SharePage_WithMalformedToken_ReturnsNotFound()
     {

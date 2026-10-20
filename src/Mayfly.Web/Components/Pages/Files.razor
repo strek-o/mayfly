@@ -1,0 +1,65 @@
+@page "/files"
+@attribute [Authorize]
+@using Mayfly.Web.Data
+@using Mayfly.Web.Files
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<MayflyDbContext> DbFactory
+@inject UserManager<ApplicationUser> UserManager
+
+<PageTitle>My files</PageTitle>
+
+<h1>My files</h1>
+
+<form action="files/uploads" method="post" data-upload data-max-size="@FileUploadEndpoints.MaxFileSize">
+    <AntiforgeryToken />
+
+    <label>
+        File
+        <input type="file" name="file" required />
+    </label>
+
+    <button type="submit">Upload</button>
+
+    <p role="status" data-upload-status>Maximum size: @FileSize.Format(FileUploadEndpoints.MaxFileSize)</p>
+</form>
+
+@if (files.Count == 0)
+{
+    <p>No files yet.</p>
+}
+else
+{
+    <ul>
+        @foreach (var file in files)
+        {
+            <li>
+                @file.FileName
+                · @FileSize.Format(file.Size)
+                · uploaded
+                <LocalTime Value="file.UploadedAt!.Value" />
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+    private List<FileItem> files = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = (await AuthenticationState).User;
+        var ownerId = UserManager.GetUserId(user)
+            ?? throw new InvalidOperationException("Signed-in user has no id claim.");
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        files = await db.Files
+            .AsNoTracking()
+            .Where(file => file.OwnerId == ownerId && file.UploadedAt != null)
+            .OrderByDescending(file => file.UploadedAt)
+            .ToListAsync();
+    }
+}
