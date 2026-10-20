@@ -15,6 +15,8 @@ public class MayflyDbContext(DbContextOptions<MayflyDbContext> options)
 
     public DbSet<ShareLink> ShareLinks => Set<ShareLink>();
 
+    public DbSet<FileItem> Files => Set<FileItem>();
+
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -47,6 +49,15 @@ public class MayflyDbContext(DbContextOptions<MayflyDbContext> options)
             link.HasOne<Paste>().WithMany().HasForeignKey(l => l.PasteId);
             link.HasOne<PasteThread>().WithMany().HasForeignKey(l => l.ThreadId).OnDelete(DeleteBehavior.NoAction);
             link.ToTable(table => table.HasCheckConstraint("CK_ShareLinks_MaxViews", "[MaxViews] IS NULL OR [MaxViews] > 0"));
+        });
+
+        modelBuilder.Entity<FileItem>(file =>
+        {
+            file.Property(f => f.FileName).HasMaxLength(255);
+            file.Property(f => f.ContentType).HasMaxLength(255);
+            file.HasIndex(f => f.ExpiresAt);
+            file.HasOne<ApplicationUser>().WithMany().HasForeignKey(f => f.OwnerId);
+            file.ToTable(table => table.HasCheckConstraint("CK_Files_Size", "[Size] >= 0"));
         });
     }
 }
