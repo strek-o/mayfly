@@ -1,6 +1,8 @@
 using Azure.Identity;
+using Azure.Storage.Blobs;
 using Mayfly.Web.Components;
 using Mayfly.Web.Data;
+using Mayfly.Web.Files;
 using Mayfly.Web.Sharing;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.DataProtection;
@@ -25,14 +27,22 @@ var dataProtection = builder.Services.AddDataProtection()
 var keyVaultKeyUri = builder.Configuration["DataProtection:KeyVaultKeyUri"];
 if (keyVaultKeyUri is not null)
 {
-    var appIdentityClientId = builder.Configuration["AZURE_CLIENT_ID"]
-        ?? throw new InvalidOperationException("AZURE_CLIENT_ID is required when DataProtection:KeyVaultKeyUri is set.");
-
     dataProtection
         .PersistKeysToDbContext<MayflyDbContext>()
-        .ProtectKeysWithAzureKeyVault(
-            new Uri(keyVaultKeyUri),
-            new ManagedIdentityCredential(ManagedIdentityId.FromUserAssignedClientId(appIdentityClientId)));
+        .ProtectKeysWithAzureKeyVault(new Uri(keyVaultKeyUri), AppIdentityCredential());
+}
+
+var storageConnectionString = builder.Configuration["Storage:ConnectionString"];
+builder.Services.AddSingleton(_ => storageConnectionString is not null
+    ? new BlobServiceClient(storageConnectionString)
+    : new BlobServiceClient(
+        new Uri(builder.Configuration["Storage:BlobEndpoint"]
+            ?? throw new InvalidOperationException("Storage:BlobEndpoint or Storage:ConnectionString is required.")),
+        AppIdentityCredential()));
+builder.Services.AddSingleton<FileStorage>();
+if (storageConnectionString is not null)
+{
+    builder.Services.AddHostedService<LocalStorageSetup>();
 }
 
 builder.Services.AddSingleton<ShareSession>();
@@ -104,3 +114,7 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+ManagedIdentityCredential AppIdentityCredential() =>
+    new(ManagedIdentityId.FromUserAssignedClientId(builder.Configuration["AZURE_CLIENT_ID"]
+        ?? throw new InvalidOperationException("AZURE_CLIENT_ID is required to use the app managed identity.")));
