@@ -22,6 +22,10 @@ output "sql_database_name" {
   value = module.mssql_database.database_name
 }
 
+output "storage_account_name" {
+  value = module.storage_account.name
+}
+
 output "app_identity_name" {
   value = data.azurerm_user_assigned_identity.app.name
 }
