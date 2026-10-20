@@ -1,0 +1,66 @@
+@page "/files/{Id:guid}"
+@attribute [Authorize]
+@using Mayfly.Web.Data
+@using Mayfly.Web.Files
+@using Mayfly.Web.Time
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<MayflyDbContext> DbFactory
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Navigation
+
+@if (file is not null)
+{
+    <PageTitle>@file.FileName</PageTitle>
+
+    <h1>@file.FileName</h1>
+
+    <p>
+        @FileSize.Format(file.Size)
+        · uploaded
+        <LocalTime Value="file.UploadedAt!.Value" />
+        · @if (file.ExpiresAt is { } expiresAt)
+        {
+            <text>expires
+                <LocalTime Value="expiresAt" />
+            </text>
+        }
+        else
+        {
+            <text>never expires</text>
+        }
+    </p>
+
+    <p><a href="files/@file.Id/download" data-enhance-nav="false">Download</a></p>
+
+    <ShareLinksPanel FileId="file.Id" />
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+    private FileItem? file;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = (await AuthenticationState).User;
+        var ownerId = UserManager.GetUserId(user)
+            ?? throw new InvalidOperationException("Signed-in user has no id claim.");
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        file = await db.Files
+            .AsNoTracking()
+            .Where(f => f.Id == Id && f.OwnerId == ownerId && f.UploadedAt != null)
+            .WhereNotExpired(DateTimeOffset.UtcNow)
+            .SingleOrDefaultAsync();
+
+        if (file is null)
+        {
+            Navigation.NotFound();
+        }
+    }
+}

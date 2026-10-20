@@ -54,7 +54,7 @@ else
         @foreach (var file in files)
         {
             <li>
-                <a href="files/@file.Id/download" data-enhance-nav="false">@file.FileName</a>
+                <a href="files/@file.Id">@file.FileName</a>
                 · @FileSize.Format(file.Size)
                 · uploaded
                 <LocalTime Value="file.UploadedAt!.Value" />

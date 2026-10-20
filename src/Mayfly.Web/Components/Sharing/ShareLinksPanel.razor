@@ -1,4 +1,5 @@
 @using System.ComponentModel.DataAnnotations
+@using System.Linq.Expressions
 @using Mayfly.Web.Data
 @using Mayfly.Web.Time
 @using Mayfly.Web.Sharing
@@ -14,10 +15,13 @@
         <DataAnnotationsValidator />
         <ValidationSummary />
 
-        <label>
-            <InputCheckbox @bind-Value="LinkInput.CanAppend" />
-            Visitors can add entries
-        </label>
+        @if (PasteId is not null)
+        {
+            <label>
+                <InputCheckbox @bind-Value="LinkInput.CanAppend" />
+                Visitors can add entries
+            </label>
+        }
 
         <label>
             Link expires
@@ -115,11 +119,14 @@
 </section>
 
 @code {
-    [Parameter, EditorRequired]
-    public Guid PasteId { get; set; }
+    [Parameter]
+    public Guid? PasteId { get; set; }
 
     [Parameter]
     public Guid? ThreadId { get; set; }
+
+    [Parameter]
+    public Guid? FileId { get; set; }
 
     [SupplyParameterFromForm(FormName = "create-share-link")]
     private LinkInputModel LinkInput { get; set; } = default!;
@@ -133,6 +140,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if ((PasteId is null) == (FileId is null))
+        {
+            throw new InvalidOperationException("Share links need either a paste or a file.");
+        }
+
         LinkInput ??= new();
         await LoadLinksAsync();
     }
@@ -146,9 +158,10 @@
         {
             PasteId = PasteId,
             ThreadId = ThreadId,
+            FileId = FileId,
             TokenHash = ShareToken.Hash(token),
             ProtectedToken = TokenProtector.Protect(token),
-            CanAppend = LinkInput.CanAppend,
+            CanAppend = PasteId is not null && LinkInput.CanAppend,
             CreatedAt = createdAt,
             ExpiresAt = Expiration.Calculate(LinkInput.Lifetime, createdAt),
             MaxViews = LinkInput.MaxViews
@@ -185,7 +198,8 @@
         await using (var db = await DbFactory.CreateDbContextAsync())
         {
             await db.ShareLinks
-                .Where(link => link.Id == linkId && link.PasteId == PasteId && link.ThreadId == ThreadId)
+                .Where(link => link.Id == linkId)
+                .Where(InScope)
                 .Where(link => link.RevokedAt == null)
                 .ExecuteUpdateAsync(setters => setters.SetProperty(link => link.RevokedAt, revokedAt));
         }
@@ -200,10 +214,13 @@
         await using var db = await DbFactory.CreateDbContextAsync();
         links = await db.ShareLinks
             .AsNoTracking()
-            .Where(link => link.PasteId == PasteId && link.ThreadId == ThreadId)
+            .Where(InScope)
             .OrderByDescending(link => link.CreatedAt)
             .ToListAsync();
     }
+
+    private Expression<Func<ShareLink, bool>> InScope =>
+        link => link.PasteId == PasteId && link.ThreadId == ThreadId && link.FileId == FileId;
 
     private sealed class LinkInputModel
     {
