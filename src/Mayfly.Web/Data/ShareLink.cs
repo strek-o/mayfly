@@ -4,9 +4,11 @@ public class ShareLink
 {
     public Guid Id { get; set; }
 
-    public Guid PasteId { get; set; }
+    public Guid? PasteId { get; set; }
 
     public Guid? ThreadId { get; set; }
+
+    public Guid? FileId { get; set; }
 
     public required byte[] TokenHash { get; set; }
 

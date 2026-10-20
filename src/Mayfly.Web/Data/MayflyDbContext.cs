@@ -48,7 +48,15 @@ public class MayflyDbContext(DbContextOptions<MayflyDbContext> options)
             link.HasIndex(l => l.TokenHash).IsUnique();
             link.HasOne<Paste>().WithMany().HasForeignKey(l => l.PasteId);
             link.HasOne<PasteThread>().WithMany().HasForeignKey(l => l.ThreadId).OnDelete(DeleteBehavior.NoAction);
-            link.ToTable(table => table.HasCheckConstraint("CK_ShareLinks_MaxViews", "[MaxViews] IS NULL OR [MaxViews] > 0"));
+            link.HasOne<FileItem>().WithMany().HasForeignKey(l => l.FileId).OnDelete(DeleteBehavior.NoAction);
+            link.ToTable(table =>
+            {
+                table.HasCheckConstraint("CK_ShareLinks_MaxViews", "[MaxViews] IS NULL OR [MaxViews] > 0");
+                table.HasCheckConstraint(
+                    "CK_ShareLinks_Target",
+                    "([PasteId] IS NOT NULL AND [FileId] IS NULL) OR ([PasteId] IS NULL AND [FileId] IS NOT NULL)");
+                table.HasCheckConstraint("CK_ShareLinks_Thread", "[ThreadId] IS NULL OR [PasteId] IS NOT NULL");
+            });
         });
 
         modelBuilder.Entity<FileItem>(file =>

@@ -201,13 +201,16 @@ namespace Mayfly.Web.Data.Migrations
                     b.Property<DateTimeOffset?>("ExpiresAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<Guid?>("FileId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int?>("MaxViews")
                         .HasColumnType("int");
 
                     b.Property<string>("PasswordHash")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid>("PasteId")
+                    b.Property<Guid?>("PasteId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("ProtectedToken")
@@ -230,6 +233,8 @@ namespace Mayfly.Web.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("FileId");
+
                     b.HasIndex("PasteId");
 
                     b.HasIndex("ThreadId");
@@ -240,6 +245,10 @@ namespace Mayfly.Web.Data.Migrations
                     b.ToTable("ShareLinks", t =>
                         {
                             t.HasCheckConstraint("CK_ShareLinks_MaxViews", "[MaxViews] IS NULL OR [MaxViews] > 0");
+
+                            t.HasCheckConstraint("CK_ShareLinks_Target", "([PasteId] IS NOT NULL AND [FileId] IS NULL) OR ([PasteId] IS NULL AND [FileId] IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_ShareLinks_Thread", "[ThreadId] IS NULL OR [PasteId] IS NOT NULL");
                         });
                 });
 
@@ -472,11 +481,14 @@ namespace Mayfly.Web.Data.Migrations
 
             modelBuilder.Entity("Mayfly.Web.Data.ShareLink", b =>
                 {
+                    b.HasOne("Mayfly.Web.Data.FileItem", null)
+                        .WithMany()
+                        .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("Mayfly.Web.Data.Paste", null)
                         .WithMany()
-                        .HasForeignKey("PasteId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("PasteId");
 
                     b.HasOne("Mayfly.Web.Data.PasteThread", null)
                         .WithMany()
