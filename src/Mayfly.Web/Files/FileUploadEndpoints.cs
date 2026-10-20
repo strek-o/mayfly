@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Mayfly.Web.Data;
+using Mayfly.Web.Time;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -33,12 +34,19 @@ public static class FileUploadEndpoints
         IDbContextFactory<MayflyDbContext> dbFactory,
         CancellationToken cancellationToken)
     {
+        var now = DateTimeOffset.UtcNow;
         var fileName = form.FileName?.Trim() ?? "";
         var contentType = string.IsNullOrWhiteSpace(form.ContentType) ? DefaultContentType : form.ContentType.Trim();
+        DateTimeOffset? customExpiresAt = form.CustomExpiresAt is { } custom
+            ? LocalDateTime.ToUtc(custom, form.TimeZone)
+            : null;
+
         if (fileName.Length is 0 or > MaxFileNameLength
             || fileName.Any(char.IsControl)
             || contentType.Length > MaxContentTypeLength
-            || form.Size is < 0 or > MaxFileSize)
+            || form.Size is < 0 or > MaxFileSize
+            || !Enum.IsDefined(form.Lifetime)
+            || (form.Lifetime == Lifetime.Custom && !(customExpiresAt > now)))
         {
             return Results.BadRequest();
         }
@@ -49,7 +57,8 @@ public static class FileUploadEndpoints
             FileName = fileName,
             ContentType = contentType,
             Size = form.Size,
-            CreatedAt = DateTimeOffset.UtcNow
+            CreatedAt = now,
+            ExpiresAt = Expiration.Calculate(form.Lifetime, now, customExpiresAt)
         };
 
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
@@ -115,6 +124,12 @@ public static class FileUploadEndpoints
         public string? ContentType { get; set; }
 
         public long Size { get; set; }
+
+        public Lifetime Lifetime { get; set; }
+
+        public DateTime? CustomExpiresAt { get; set; }
+
+        public string? TimeZone { get; set; }
     }
 
     public sealed record UploadStarted(Guid Id, Uri UploadUrl);

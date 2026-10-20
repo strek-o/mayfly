@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Mayfly.Web.Data;
+using Mayfly.Web.Time;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,6 +27,7 @@ public static class FileDownloadEndpoint
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
         var file = await db.Files
             .AsNoTracking()
+            .WhereNotExpired(DateTimeOffset.UtcNow)
             .SingleOrDefaultAsync(f => f.Id == id && f.OwnerId == ownerId && f.UploadedAt != null, cancellationToken);
 
         if (file is null)

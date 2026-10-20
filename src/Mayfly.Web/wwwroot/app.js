@@ -50,11 +50,17 @@ document.addEventListener("submit", async (event) => {
   try {
     const antiforgery = form.elements.__RequestVerificationToken.value;
     const contentType = file.type || "application/octet-stream";
+    const customExpiresAt = form.elements.CustomExpiresAt;
 
     const started = await postForm(form.action, antiforgery, {
       FileName: file.name,
       ContentType: contentType,
       Size: file.size,
+      Lifetime: form.elements.Lifetime.value,
+      TimeZone: form.elements.TimeZone.value,
+      ...(customExpiresAt.disabled || !customExpiresAt.value
+        ? {}
+        : { CustomExpiresAt: customExpiresAt.value }),
     });
     const { id, uploadUrl } = await started.json();
 
@@ -70,7 +76,8 @@ document.addEventListener("submit", async (event) => {
     await postForm(`${form.action}/${id}/complete`, antiforgery, {});
     location.reload();
   } catch {
-    status.textContent = "Upload failed. Try again.";
+    status.textContent =
+      "Upload failed. Check the expiration date and try again.";
     button.disabled = false;
   }
 });
