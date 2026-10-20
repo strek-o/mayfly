@@ -109,6 +109,7 @@ app.MapPost("/account/logout", async (
 
 app.MapGuestEntryEndpoint();
 app.MapFileUploadEndpoints();
+app.MapFileDownloadEndpoint();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

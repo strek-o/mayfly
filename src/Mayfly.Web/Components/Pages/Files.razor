@@ -34,7 +34,7 @@ else
         @foreach (var file in files)
         {
             <li>
-                @file.FileName
+                <a href="files/@file.Id/download" data-enhance-nav="false">@file.FileName</a>
                 · @FileSize.Format(file.Size)
                 · uploaded
                 <LocalTime Value="file.UploadedAt!.Value" />

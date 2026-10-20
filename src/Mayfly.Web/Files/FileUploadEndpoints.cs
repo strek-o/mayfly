@@ -36,6 +36,7 @@ public static class FileUploadEndpoints
         var fileName = form.FileName?.Trim() ?? "";
         var contentType = string.IsNullOrWhiteSpace(form.ContentType) ? DefaultContentType : form.ContentType.Trim();
         if (fileName.Length is 0 or > MaxFileNameLength
+            || fileName.Any(char.IsControl)
             || contentType.Length > MaxContentTypeLength
             || form.Size is < 0 or > MaxFileSize)
         {

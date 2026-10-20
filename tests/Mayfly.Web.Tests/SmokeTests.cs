@@ -96,6 +96,17 @@ public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task FileDownload_ForAnonymousVisitor_RedirectsToLogin()
+    {
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/files/9c0c4b4e-0a43-4a43-9a5e-6a3f0f5f2d11/download", TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/account/login", response.Headers.Location?.AbsolutePath);
+    }
+
+    [Fact]
     public async Task SharePage_WithMalformedToken_ReturnsNotFound()
     {
         var client = factory.CreateClient();
