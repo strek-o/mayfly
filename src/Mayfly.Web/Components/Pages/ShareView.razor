@@ -1,5 +1,6 @@
 @page "/s/{Token}"
 @using Mayfly.Web.Data
+@using Mayfly.Web.Files
 @using Mayfly.Web.Time
 @using Mayfly.Web.Sharing
 @using Microsoft.EntityFrameworkCore
@@ -7,7 +8,7 @@
 @inject ShareSession Session
 @inject NavigationManager Navigation
 
-<PageTitle>Shared paste</PageTitle>
+<PageTitle>Shared content</PageTitle>
 
 <HeadContent>
     <meta name="robots" content="noindex" />
@@ -77,13 +78,24 @@
         </form>
     }
 }
+else if (sharedFile is not null)
+{
+    <h1>@sharedFile.FileName</h1>
+
+    <p>@FileSize.Format(sharedFile.Size)</p>
+
+    <form method="post" action="@($"s/{Token}/download")">
+        <AntiforgeryToken />
+        <button type="submit">Download</button>
+    </form>
+}
 else if (link is not null)
 {
-    <h1>Shared paste</h1>
+    <h1>Shared content</h1>
 
-    @if (EntryStatus == "session-expired")
+    @if (SessionStatus == "expired")
     {
-        <p>Your session has expired. Open the content again to add entries.</p>
+        <p>Your session has expired. Open the content again to continue.</p>
     }
 
     @if (link.MaxViews is { } maxViews)
@@ -123,8 +135,8 @@ else if (link is not null)
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
 
-    [SupplyParameterFromQuery(Name = "entry")]
-    public string? EntryStatus { get; set; }
+    [SupplyParameterFromQuery(Name = "session")]
+    public string? SessionStatus { get; set; }
 
     [SupplyParameterFromForm(FormName = "reveal")]
     private string? Password { get; set; }
@@ -132,6 +144,8 @@ else if (link is not null)
     private ShareLink? link;
 
     private SharedContent? content;
+
+    private SharedFile? sharedFile;
 
     private bool passwordRejected;
 
@@ -143,18 +157,28 @@ else if (link is not null)
             var now = DateTimeOffset.UtcNow;
 
             await using var db = await DbFactory.CreateDbContextAsync();
-            var livePastes = db.Pastes.WhereNotExpired(now);
             link = await db.ShareLinks
                 .AsNoTracking()
                 .Where(l => l.TokenHash == tokenHash)
                 .WhereOpen(now)
-                .Where(l => livePastes.Any(paste => paste.Id == l.PasteId))
+                .WhereTargetAvailable(db, now)
                 .SingleOrDefaultAsync();
 
             if (link is not null && Session.IsActive(HttpContext, link.Id))
             {
                 Session.Start(HttpContext, link.Id, Token);
-                content = await LoadContentAsync(db, link);
+                if (link.FileId is { } fileId)
+                {
+                    sharedFile = await db.Files
+                        .Where(file => file.Id == fileId)
+                        .Select(file => new SharedFile(file.FileName, file.Size))
+                        .SingleAsync();
+                }
+                else
+                {
+                    content = await LoadContentAsync(db, link);
+                }
+
                 return;
             }
 
@@ -187,11 +211,10 @@ else if (link is not null)
         var now = DateTimeOffset.UtcNow;
 
         await using var db = await DbFactory.CreateDbContextAsync();
-        var livePastes = db.Pastes.WhereNotExpired(now);
         var consumed = await db.ShareLinks
             .Where(l => l.Id == linkId)
             .WhereActive(now)
-            .Where(l => livePastes.Any(paste => paste.Id == l.PasteId))
+            .WhereTargetAvailable(db, now)
             .ExecuteUpdateAsync(setters => setters.SetProperty(l => l.ViewCount, l => l.ViewCount + 1));
 
         if (consumed == 0)
@@ -226,4 +249,6 @@ else if (link is not null)
     }
 
     private sealed record SharedContent(string Title, List<PasteThread> Threads);
+
+    private sealed record SharedFile(string FileName, long Size);
 }

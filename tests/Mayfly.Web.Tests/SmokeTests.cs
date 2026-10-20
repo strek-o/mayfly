@@ -1,4 +1,6 @@
 using System.Net;
+using System.Text.RegularExpressions;
+using Mayfly.Web.Sharing;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 
@@ -127,6 +129,33 @@ public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<
         });
 
         var response = await client.PostAsync("/s/not-a-real-token/entries", form, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SharedFileDownload_WithMalformedToken_RendersNotFoundPage()
+    {
+        var client = factory.CreateClient();
+        var loginPage = await client.GetStringAsync("/account/login", TestContext.Current.CancellationToken);
+        var antiforgeryToken = Regex.Match(loginPage, "name=\"__RequestVerificationToken\" value=\"([^\"]+)\"").Groups[1].Value;
+        var form = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = antiforgeryToken
+        });
+
+        var response = await client.PostAsync("/s/not-a-real-token/download", form, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Contains("<h3>Not Found</h3>", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task SharedFileDownload_WithoutAntiforgeryToken_IsRejected()
+    {
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsync($"/s/{ShareToken.Generate()}/download", null, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }

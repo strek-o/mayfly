@@ -56,7 +56,7 @@ public static class GuestEntryEndpoint
 
         if (!session.IsActive(context, link.Id))
         {
-            return Results.LocalRedirect($"/s/{token}?entry=session-expired");
+            return Results.LocalRedirect($"/s/{token}?session=expired");
         }
 
         var threadInScope = await db.Threads.AnyAsync(thread =>
