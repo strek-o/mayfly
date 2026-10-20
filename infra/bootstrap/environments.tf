@@ -98,3 +98,12 @@ resource "azurerm_role_assignment" "app_key_vault" {
   principal_id         = azurerm_user_assigned_identity.app[each.key].principal_id
   principal_type       = "ServicePrincipal"
 }
+
+resource "azurerm_role_assignment" "app_storage" {
+  for_each = local.environments
+
+  scope                = azurerm_resource_group.env[each.key].id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azurerm_user_assigned_identity.app[each.key].principal_id
+  principal_type       = "ServicePrincipal"
+}
