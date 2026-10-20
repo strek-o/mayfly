@@ -2,7 +2,6 @@
 @attribute [Authorize]
 @using System.ComponentModel.DataAnnotations
 @using Mayfly.Web.Data
-@using Mayfly.Web.Pastes
 @using Mayfly.Web.Time
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
@@ -30,20 +29,19 @@
 
     <label>
         Expires
-        <InputSelect @bind-Value="Input.Lifetime" data-enables="custom-expires-at"
-                     data-enables-when="@PasteLifetime.Custom">
-            <option value="@PasteLifetime.Forever">Never</option>
-            <option value="@PasteLifetime.OneHour">In 1 hour</option>
-            <option value="@PasteLifetime.OneDay">In 1 day</option>
-            <option value="@PasteLifetime.SevenDays">In 7 days</option>
-            <option value="@PasteLifetime.Custom">Custom date</option>
+        <InputSelect @bind-Value="Input.Lifetime" data-enables="custom-expires-at" data-enables-when="@Lifetime.Custom">
+            <option value="@Lifetime.Forever">Never</option>
+            <option value="@Lifetime.OneHour">In 1 hour</option>
+            <option value="@Lifetime.OneDay">In 1 day</option>
+            <option value="@Lifetime.SevenDays">In 7 days</option>
+            <option value="@Lifetime.Custom">Custom date</option>
         </InputSelect>
     </label>
 
     <label>
         Custom date
         <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="Input.CustomExpiresAt" id="custom-expires-at"
-                   disabled="@(Input.Lifetime != PasteLifetime.Custom)" />
+                   disabled="@(Input.Lifetime != Lifetime.Custom)" />
     </label>
 
     <input type="hidden" name="Input.TimeZone" data-time-zone />
@@ -116,7 +114,7 @@ else
             ? LocalDateTime.ToUtc(custom, Input.TimeZone)
             : null;
 
-        if (Input.Lifetime == PasteLifetime.Custom && !(customExpiresAt > now))
+        if (Input.Lifetime == Lifetime.Custom && !(customExpiresAt > now))
         {
             error = "Custom date must be in the future.";
             return;
@@ -128,7 +126,7 @@ else
             OwnerId = ownerId,
             Title = Input.Title.Trim(),
             CreatedAt = now,
-            ExpiresAt = PasteExpiration.Calculate(Input.Lifetime, now, customExpiresAt)
+            ExpiresAt = Expiration.Calculate(Input.Lifetime, now, customExpiresAt)
         });
         await db.SaveChangesAsync();
 
@@ -141,7 +139,7 @@ else
         [StringLength(200)]
         public string Title { get; set; } = "";
 
-        public PasteLifetime Lifetime { get; set; } = PasteLifetime.Forever;
+        public Lifetime Lifetime { get; set; } = Lifetime.Forever;
 
         public DateTime? CustomExpiresAt { get; set; }
 

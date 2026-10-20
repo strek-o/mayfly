@@ -1,6 +1,6 @@
-namespace Mayfly.Web.Pastes;
+namespace Mayfly.Web.Time;
 
-public enum PasteLifetime
+public enum Lifetime
 {
     Forever,
     OneHour,

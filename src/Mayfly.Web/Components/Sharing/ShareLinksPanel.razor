@@ -1,6 +1,6 @@
 @using System.ComponentModel.DataAnnotations
 @using Mayfly.Web.Data
-@using Mayfly.Web.Pastes
+@using Mayfly.Web.Time
 @using Mayfly.Web.Sharing
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<MayflyDbContext> DbFactory
@@ -22,10 +22,10 @@
         <label>
             Link expires
             <InputSelect @bind-Value="LinkInput.Lifetime">
-                <option value="@PasteLifetime.Forever">Never</option>
-                <option value="@PasteLifetime.OneHour">In 1 hour</option>
-                <option value="@PasteLifetime.OneDay">In 1 day</option>
-                <option value="@PasteLifetime.SevenDays">In 7 days</option>
+                <option value="@Lifetime.Forever">Never</option>
+                <option value="@Lifetime.OneHour">In 1 hour</option>
+                <option value="@Lifetime.OneDay">In 1 day</option>
+                <option value="@Lifetime.SevenDays">In 7 days</option>
             </InputSelect>
         </label>
 
@@ -150,7 +150,7 @@
             ProtectedToken = TokenProtector.Protect(token),
             CanAppend = LinkInput.CanAppend,
             CreatedAt = createdAt,
-            ExpiresAt = PasteExpiration.Calculate(LinkInput.Lifetime, createdAt),
+            ExpiresAt = Expiration.Calculate(LinkInput.Lifetime, createdAt),
             MaxViews = LinkInput.MaxViews
         };
 
@@ -209,8 +209,8 @@
     {
         public bool CanAppend { get; set; }
 
-        [AllowedValues(PasteLifetime.Forever, PasteLifetime.OneHour, PasteLifetime.OneDay, PasteLifetime.SevenDays)]
-        public PasteLifetime Lifetime { get; set; } = PasteLifetime.SevenDays;
+        [AllowedValues(Lifetime.Forever, Lifetime.OneHour, Lifetime.OneDay, Lifetime.SevenDays)]
+        public Lifetime Lifetime { get; set; } = Lifetime.SevenDays;
 
         [Range(1, 1000)]
         public int? MaxViews { get; set; }

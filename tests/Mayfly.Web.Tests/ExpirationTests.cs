@@ -1,25 +1,25 @@
 using Mayfly.Web.Data;
-using Mayfly.Web.Pastes;
+using Mayfly.Web.Time;
 
 namespace Mayfly.Web.Tests;
 
-public class PasteExpirationTests
+public class ExpirationTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 15, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public void Forever_HasNoExpiration()
     {
-        Assert.Null(PasteExpiration.Calculate(PasteLifetime.Forever, Now));
+        Assert.Null(Expiration.Calculate(Lifetime.Forever, Now));
     }
 
     [Theory]
-    [InlineData(PasteLifetime.OneHour, 1)]
-    [InlineData(PasteLifetime.OneDay, 24)]
-    [InlineData(PasteLifetime.SevenDays, 168)]
-    public void Preset_ExpiresAfterItsDuration(PasteLifetime lifetime, int hours)
+    [InlineData(Lifetime.OneHour, 1)]
+    [InlineData(Lifetime.OneDay, 24)]
+    [InlineData(Lifetime.SevenDays, 168)]
+    public void Preset_ExpiresAfterItsDuration(Lifetime lifetime, int hours)
     {
-        Assert.Equal(Now.AddHours(hours), PasteExpiration.Calculate(lifetime, Now));
+        Assert.Equal(Now.AddHours(hours), Expiration.Calculate(lifetime, Now));
     }
 
     [Fact]
@@ -27,7 +27,7 @@ public class PasteExpirationTests
     {
         var custom = Now.AddDays(30);
 
-        Assert.Equal(custom, PasteExpiration.Calculate(PasteLifetime.Custom, Now, custom));
+        Assert.Equal(custom, Expiration.Calculate(Lifetime.Custom, Now, custom));
     }
 
     [Theory]
@@ -36,13 +36,13 @@ public class PasteExpirationTests
     public void Custom_NowOrInThePast_IsRejected(int minutesFromNow)
     {
         Assert.Throws<ArgumentException>(() =>
-            PasteExpiration.Calculate(PasteLifetime.Custom, Now, Now.AddMinutes(minutesFromNow)));
+            Expiration.Calculate(Lifetime.Custom, Now, Now.AddMinutes(minutesFromNow)));
     }
 
     [Fact]
     public void Custom_WithoutDate_IsRejected()
     {
-        Assert.Throws<ArgumentException>(() => PasteExpiration.Calculate(PasteLifetime.Custom, Now));
+        Assert.Throws<ArgumentException>(() => Expiration.Calculate(Lifetime.Custom, Now));
     }
 
     [Fact]

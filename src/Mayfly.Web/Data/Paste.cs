@@ -1,6 +1,6 @@
 namespace Mayfly.Web.Data;
 
-public class Paste
+public class Paste : IExpiring
 {
     public Guid Id { get; set; }
 

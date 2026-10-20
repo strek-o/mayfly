@@ -1,6 +1,6 @@
 namespace Mayfly.Web.Data;
 
-public class FileItem
+public class FileItem : IExpiring
 {
     public Guid Id { get; set; }
 
