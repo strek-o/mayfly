@@ -51,9 +51,18 @@ public static class FileUploadEndpoints
             return Results.BadRequest();
         }
 
+        var ownerId = GetOwnerId(user, userManager);
+
+        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+        var usedBytes = await db.Files.GetUsedBytesAsync(ownerId, now, cancellationToken);
+        if (usedBytes + form.Size > FileQuota.MaxBytesPerUser)
+        {
+            return Results.Conflict();
+        }
+
         var file = new FileItem
         {
-            OwnerId = GetOwnerId(user, userManager),
+            OwnerId = ownerId,
             FileName = fileName,
             ContentType = contentType,
             Size = form.Size,
@@ -61,7 +70,6 @@ public static class FileUploadEndpoints
             ExpiresAt = Expiration.Calculate(form.Lifetime, now, customExpiresAt)
         };
 
-        await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
         db.Files.Add(file);
         await db.SaveChangesAsync(cancellationToken);
 

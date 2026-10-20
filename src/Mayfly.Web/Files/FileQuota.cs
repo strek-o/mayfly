@@ -1,0 +1,24 @@
+using Mayfly.Web.Data;
+using Mayfly.Web.Time;
+using Microsoft.EntityFrameworkCore;
+
+namespace Mayfly.Web.Files;
+
+public static class FileQuota
+{
+    public const long MaxBytesPerUser = 500L * 1024 * 1024;
+
+    public static Task<long> GetUsedBytesAsync(
+        this IQueryable<FileItem> files,
+        string ownerId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default)
+    {
+        var pendingSince = now - FileStorage.UploadLifetime;
+        return files
+            .Where(file => file.OwnerId == ownerId)
+            .Where(file => file.UploadedAt != null || file.CreatedAt > pendingSince)
+            .WhereNotExpired(now)
+            .SumAsync(file => file.Size, cancellationToken);
+    }
+}

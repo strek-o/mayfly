@@ -75,9 +75,11 @@ document.addEventListener("submit", async (event) => {
 
     await postForm(`${form.action}/${id}/complete`, antiforgery, {});
     location.reload();
-  } catch {
+  } catch (error) {
     status.textContent =
-      "Upload failed. Check the expiration date and try again.";
+      error.status === 409
+        ? "Not enough storage space left for this file."
+        : "Upload failed. Check the expiration date and try again.";
     button.disabled = false;
   }
 });
@@ -95,7 +97,9 @@ async function postForm(url, antiforgery, fields) {
     redirect: "error",
   });
   if (!response.ok) {
-    throw new Error(`Request failed with ${response.status}`);
+    throw Object.assign(new Error(`Request failed with ${response.status}`), {
+      status: response.status,
+    });
   }
 
   return response;

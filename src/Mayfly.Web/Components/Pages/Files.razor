@@ -12,6 +12,8 @@
 
 <h1>My files</h1>
 
+<p>Used @FileSize.Format(usedBytes) of @FileSize.Format(FileQuota.MaxBytesPerUser)</p>
+
 <form action="files/uploads" method="post" data-upload data-max-size="@FileUploadEndpoints.MaxFileSize">
     <AntiforgeryToken />
 
@@ -79,18 +81,23 @@ else
 
     private List<FileItem> files = [];
 
+    private long usedBytes;
+
     protected override async Task OnInitializedAsync()
     {
         var user = (await AuthenticationState).User;
         var ownerId = UserManager.GetUserId(user)
             ?? throw new InvalidOperationException("Signed-in user has no id claim.");
 
+        var now = DateTimeOffset.UtcNow;
+
         await using var db = await DbFactory.CreateDbContextAsync();
         files = await db.Files
             .AsNoTracking()
             .Where(file => file.OwnerId == ownerId && file.UploadedAt != null)
-            .WhereNotExpired(DateTimeOffset.UtcNow)
+            .WhereNotExpired(now)
             .OrderByDescending(file => file.UploadedAt)
             .ToListAsync();
+        usedBytes = await db.Files.GetUsedBytesAsync(ownerId, now);
     }
 }
