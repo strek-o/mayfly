@@ -14,8 +14,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+builder.Services.AddRazorComponents();
 
 builder.Services.AddDbContextFactory<MayflyDbContext>(options =>
     options.UseSqlServer(
@@ -53,6 +52,7 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
     .AddIdentityCookies();
 builder.Services.ConfigureApplicationCookie(options => options.LoginPath = "/account/login");
+builder.Services.AddAuthorization();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
@@ -128,8 +128,7 @@ app.MapFileUploadEndpoints();
 app.MapFileDownloadEndpoint();
 
 app.MapStaticAssets();
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+app.MapRazorComponents<App>();
 
 app.Run();
 
