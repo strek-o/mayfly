@@ -57,11 +57,18 @@ jobs:
       - name: Terraform init
         run: terraform init
 
-      - name: Terraform plan
-        run: terraform plan -out=tfplan
+      - name: Read running image tag
+        id: running
+        run: |
+          tag="$(terraform output -raw image_tag 2>/dev/null || true)"
+          echo "image_tag=${tag:-$TF_VAR_image_tag}" >> "$GITHUB_OUTPUT"
 
-      - name: Terraform apply
-        run: terraform apply tfplan
+      - name: Apply infrastructure with the running image
+        env:
+          TF_VAR_image_tag: ${{ steps.running.outputs.image_tag }}
+        run: |
+          terraform plan -out=tfplan
+          terraform apply tfplan
 
       - name: Allow runner access to SQL
         id: sql-firewall
@@ -119,19 +126,24 @@ jobs:
             -v AppIdentityClientId=${{ steps.sql.outputs.app_identity_client_id }}
           skip-firewall-check: true
 
-      - name: Check readiness endpoint
+      - name: Roll out the new image
+        run: |
+          terraform plan -out=tfplan
+          terraform apply tfplan
+
+      - name: Wait for the new version to be ready
         run: |
           url="$(terraform output -raw app_url)/healthz/ready"
-          for attempt in $(seq 1 12); do
-            if curl --fail --silent --show-error --max-time 10 "$url"; then
-              echo
-              echo "Healthy: $url"
+          for attempt in $(seq 1 18); do
+            result="$(curl --silent --max-time 10 --output /dev/null --write-out '%{http_code} %header{x-app-version}' "$url" || true)"
+            if [ "$result" = "200 $TF_VAR_image_tag" ]; then
+              echo "Ready: $url serves $TF_VAR_image_tag"
               exit 0
             fi
-            echo "Attempt $attempt failed, retrying in 10s"
+            echo "Attempt $attempt: got '$result', retrying in 10s"
             sleep 10
           done
-          echo "::error::Health check failed for $url"
+          echo "::error::$url did not serve $TF_VAR_image_tag as ready"
           exit 1
 
       - name: Remove runner access to SQL

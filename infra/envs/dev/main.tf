@@ -47,6 +47,7 @@ module "container_app" {
   tags                         = local.tags
 
   env = {
+    APP_VERSION                    = var.image_tag
     AZURE_CLIENT_ID                = data.azurerm_user_assigned_identity.app.client_id
     ConnectionStrings__Mayfly      = "Server=tcp:${module.mssql_database.server_fqdn},1433;Database=${module.mssql_database.database_name};Authentication=Active Directory Managed Identity;User Id=${data.azurerm_user_assigned_identity.app.client_id};Encrypt=True"
     DataProtection__KeyVaultKeyUri = azurerm_key_vault_key.data_protection.versionless_id

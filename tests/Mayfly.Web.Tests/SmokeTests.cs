@@ -20,6 +20,18 @@ public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<
     }
 
     [Fact]
+    public async Task HealthEndpoint_ReportsConfiguredAppVersion()
+    {
+        var client = factory
+            .WithWebHostBuilder(builder => builder.UseSetting("APP_VERSION", "test-version"))
+            .CreateClient();
+
+        var response = await client.GetAsync("/healthz", TestContext.Current.CancellationToken);
+
+        Assert.Equal("test-version", response.Headers.GetValues("X-App-Version").Single());
+    }
+
+    [Fact]
     public async Task HomePage_Renders()
     {
         var client = factory.CreateClient();

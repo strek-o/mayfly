@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -84,13 +85,27 @@ app.UseHttpsRedirection();
 
 app.UseAntiforgery();
 
+var appVersion = builder.Configuration["APP_VERSION"];
+Task WriteHealthResponse(HttpContext context, HealthReport report)
+{
+    if (appVersion is not null)
+    {
+        context.Response.Headers["X-App-Version"] = appVersion;
+    }
+
+    context.Response.ContentType = "text/plain";
+    return context.Response.WriteAsync(report.Status.ToString());
+}
+
 app.MapHealthChecks("/healthz", new HealthCheckOptions
 {
-    Predicate = _ => false
+    Predicate = _ => false,
+    ResponseWriter = WriteHealthResponse
 });
 app.MapHealthChecks("/healthz/ready", new HealthCheckOptions
 {
-    Predicate = check => check.Tags.Contains("ready")
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = WriteHealthResponse
 });
 
 app.MapPost("/account/logout", async (

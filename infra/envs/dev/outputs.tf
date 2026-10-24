@@ -10,6 +10,10 @@ output "app_url" {
   value = module.container_app.url
 }
 
+output "image_tag" {
+  value = var.image_tag
+}
+
 output "sql_server_name" {
   value = module.mssql_database.server_name
 }
