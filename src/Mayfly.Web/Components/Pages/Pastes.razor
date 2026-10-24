@@ -139,6 +139,7 @@ else
         [StringLength(200)]
         public string Title { get; set; } = "";
 
+        [EnumDataType(typeof(Lifetime))]
         public Lifetime Lifetime { get; set; } = Lifetime.Forever;
 
         public DateTime? CustomExpiresAt { get; set; }
