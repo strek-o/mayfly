@@ -37,7 +37,10 @@ updates:
       default-days: 7
 
   - package-ecosystem: terraform
-    directory: /infra/bootstrap
+    directories:
+      - /infra/bootstrap
+      - /infra/envs/dev
+      - /infra/envs/prod
     schedule:
       interval: weekly
     cooldown:
