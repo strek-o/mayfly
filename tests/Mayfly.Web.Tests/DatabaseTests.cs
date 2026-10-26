@@ -91,6 +91,44 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         Assert.Equal(HttpStatusCode.Conflict, rejected.StatusCode);
     }
 
+    [Fact]
+    public async Task DeletePaste_RemovesPasteWithThreadsAndShareLinks()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var pasteId = await SeedPasteAsync(ownerId, "to delete");
+        var threadId = await SeedThreadAsync(pasteId);
+        await SeedShareLinkAsync(pasteId, maxViews: null);
+        await SeedShareLinkAsync(pasteId, maxViews: null, threadId);
+
+        var response = await owner.PostAsync(
+            $"/pastes/{pasteId}",
+            Form(await GetAntiforgeryTokenAsync(owner, $"/pastes/{pasteId}"), ("_handler", "delete-paste")),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.False(await db.Pastes.AnyAsync(paste => paste.Id == pasteId, Ct));
+        Assert.False(await db.Threads.AnyAsync(thread => thread.Id == threadId, Ct));
+        Assert.False(await db.ShareLinks.AnyAsync(link => link.PasteId == pasteId, Ct));
+    }
+
+    [Fact]
+    public async Task DeletePaste_ByAnotherUser_KeepsPaste()
+    {
+        var (_, ownerId) = await RegisterAsync();
+        var (other, _) = await RegisterAsync();
+        var pasteId = await SeedPasteAsync(ownerId, "not yours");
+
+        var response = await other.PostAsync(
+            $"/pastes/{pasteId}",
+            Form(await GetAntiforgeryTokenAsync(other, "/pastes"), ("_handler", "delete-paste")),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.True(await db.Pastes.AnyAsync(paste => paste.Id == pasteId, Ct));
+    }
+
     private HttpClient CreateClient() =>
         database.Factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
@@ -125,7 +163,17 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         return paste.Id;
     }
 
-    private async Task<string> SeedShareLinkAsync(Guid pasteId, int? maxViews)
+    private async Task<Guid> SeedThreadAsync(Guid pasteId)
+    {
+        var thread = new PasteThread { PasteId = pasteId, Title = "thread", CreatedAt = DateTimeOffset.UtcNow };
+
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        db.Threads.Add(thread);
+        await db.SaveChangesAsync(Ct);
+        return thread.Id;
+    }
+
+    private async Task<string> SeedShareLinkAsync(Guid pasteId, int? maxViews, Guid? threadId = null)
     {
         var token = ShareToken.Generate();
 
@@ -133,6 +181,7 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         db.ShareLinks.Add(new ShareLink
         {
             PasteId = pasteId,
+            ThreadId = threadId,
             TokenHash = ShareToken.Hash(token),
             CreatedAt = DateTimeOffset.UtcNow,
             MaxViews = maxViews

@@ -55,6 +55,11 @@
     </EditForm>
 
     <ShareLinksPanel PasteId="paste.Id" />
+
+    <form method="post" @formname="delete-paste" @onsubmit="DeleteAsync" data-confirm="Delete this paste with all its threads and links?">
+        <AntiforgeryToken />
+        <button type="submit">Delete paste</button>
+    </form>
 }
 
 @code {
@@ -108,6 +113,19 @@
         await db.SaveChangesAsync();
 
         Navigation.NavigateTo($"pastes/{paste.Id}");
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (paste is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.Pastes.Where(p => p.Id == paste.Id && p.OwnerId == paste.OwnerId).DeleteWithShareLinksAsync(db);
+
+        Navigation.NavigateTo("pastes");
     }
 
     private sealed class InputModel

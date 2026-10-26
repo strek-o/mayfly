@@ -25,6 +25,13 @@ document.addEventListener("click", async (event) => {
   }
 });
 
+document.addEventListener("submit", (event) => {
+  const message = event.target.dataset?.confirm;
+  if (message && !confirm(message)) {
+    event.preventDefault();
+  }
+});
+
 document.addEventListener("submit", async (event) => {
   const form = event.target;
   if (!(form instanceof HTMLFormElement) || !form.hasAttribute("data-upload")) {
