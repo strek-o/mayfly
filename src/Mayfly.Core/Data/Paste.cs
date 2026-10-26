@@ -1,4 +1,4 @@
-namespace Mayfly.Web.Data;
+namespace Mayfly.Core.Data;
 
 public class Paste : IExpiring
 {

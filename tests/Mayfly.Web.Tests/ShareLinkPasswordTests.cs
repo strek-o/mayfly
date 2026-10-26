@@ -1,4 +1,4 @@
-using Mayfly.Web.Data;
+using Mayfly.Core.Data;
 using Mayfly.Web.Sharing;
 
 namespace Mayfly.Web.Tests;

@@ -1,4 +1,4 @@
-using Mayfly.Web.Data;
+using Mayfly.Core.Data;
 using Microsoft.AspNetCore.Identity;
 
 namespace Mayfly.Web.Sharing;

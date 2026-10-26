@@ -1,4 +1,4 @@
-using Mayfly.Web.Data;
+using Mayfly.Core.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.SqlClient;

@@ -3,6 +3,7 @@ ARG TARGETARCH
 WORKDIR /source
 
 COPY global.json .
+COPY src/Mayfly.Core/Mayfly.Core.csproj src/Mayfly.Core/
 COPY src/Mayfly.Web/Mayfly.Web.csproj src/Mayfly.Web/
 RUN dotnet restore src/Mayfly.Web/Mayfly.Web.csproj -a $TARGETARCH
 

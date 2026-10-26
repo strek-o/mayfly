@@ -1,6 +1,7 @@
 using System.Security.Claims;
-using Mayfly.Web.Data;
-using Mayfly.Web.Time;
+using Mayfly.Core.Data;
+using Mayfly.Core.Files;
+using Mayfly.Core.Time;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 

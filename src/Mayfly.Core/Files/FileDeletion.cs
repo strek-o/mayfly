@@ -1,7 +1,7 @@
-using Mayfly.Web.Data;
+using Mayfly.Core.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace Mayfly.Web.Files;
+namespace Mayfly.Core.Files;
 
 public static class FileDeletion
 {

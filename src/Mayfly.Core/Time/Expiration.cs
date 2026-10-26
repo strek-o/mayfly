@@ -1,6 +1,6 @@
-using Mayfly.Web.Data;
+using Mayfly.Core.Data;
 
-namespace Mayfly.Web.Time;
+namespace Mayfly.Core.Time;
 
 public static class Expiration
 {

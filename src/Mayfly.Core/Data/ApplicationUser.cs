@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 
-namespace Mayfly.Web.Data;
+namespace Mayfly.Core.Data;
 
 public class ApplicationUser : IdentityUser
 {

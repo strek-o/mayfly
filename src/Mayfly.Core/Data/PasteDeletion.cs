@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace Mayfly.Web.Data;
+namespace Mayfly.Core.Data;
 
 public static class PasteDeletion
 {

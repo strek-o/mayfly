@@ -1,6 +1,6 @@
-using Mayfly.Web.Data;
-using Mayfly.Web.Files;
-using Mayfly.Web.Time;
+using Mayfly.Core.Data;
+using Mayfly.Core.Files;
+using Mayfly.Core.Time;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.EntityFrameworkCore;
 

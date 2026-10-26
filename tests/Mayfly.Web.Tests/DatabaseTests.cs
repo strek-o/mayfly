@@ -1,7 +1,8 @@
 using System.Net;
 using System.Text.RegularExpressions;
 using Azure.Storage.Blobs;
-using Mayfly.Web.Data;
+using Mayfly.Core.Data;
+using Mayfly.Core.Files;
 using Mayfly.Web.Files;
 using Mayfly.Web.Sharing;
 using Microsoft.AspNetCore.Mvc.Testing;

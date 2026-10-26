@@ -1,5 +1,6 @@
-using Mayfly.Web.Data;
-using Mayfly.Web.Time;
+using Mayfly.Core.Data;
+using Mayfly.Core.Files;
+using Mayfly.Core.Time;
 using Microsoft.EntityFrameworkCore;
 
 namespace Mayfly.Web.Files;

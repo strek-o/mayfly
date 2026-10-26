@@ -1,4 +1,4 @@
-namespace Mayfly.Web.Time;
+namespace Mayfly.Core.Time;
 
 public enum Lifetime
 {

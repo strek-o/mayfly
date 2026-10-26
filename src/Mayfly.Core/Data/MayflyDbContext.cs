@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
-namespace Mayfly.Web.Data;
+namespace Mayfly.Core.Data;
 
 public class MayflyDbContext(DbContextOptions<MayflyDbContext> options)
     : IdentityDbContext<ApplicationUser>(options), IDataProtectionKeyContext

@@ -1,9 +1,10 @@
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Sas;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Net.Http.Headers;
 
-namespace Mayfly.Web.Files;
+namespace Mayfly.Core.Files;
 
 public sealed class FileStorage(BlobServiceClient blobService)
 {

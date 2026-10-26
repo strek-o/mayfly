@@ -1,5 +1,5 @@
-using Mayfly.Web.Data;
-using Mayfly.Web.Time;
+using Mayfly.Core.Data;
+using Mayfly.Core.Time;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 

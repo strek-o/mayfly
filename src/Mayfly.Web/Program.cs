@@ -1,7 +1,8 @@
 using Azure.Identity;
 using Azure.Storage.Blobs;
+using Mayfly.Core.Data;
+using Mayfly.Core.Files;
 using Mayfly.Web.Components;
-using Mayfly.Web.Data;
 using Mayfly.Web.Files;
 using Mayfly.Web.Sharing;
 using Microsoft.AspNetCore.Antiforgery;
@@ -19,7 +20,7 @@ builder.Services.AddRazorComponents();
 builder.Services.AddDbContextFactory<MayflyDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("Mayfly"),
-        sql => sql.EnableRetryOnFailure()));
+        sql => sql.EnableRetryOnFailure().MigrationsAssembly(typeof(Program).Assembly)));
 
 var dataProtection = builder.Services.AddDataProtection()
     .SetApplicationName("mayfly");
