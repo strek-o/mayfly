@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.RegularExpressions;
 using Azure.Storage.Blobs;
+using Mayfly.Core.Cleanup;
 using Mayfly.Core.Data;
 using Mayfly.Core.Files;
 using Mayfly.Web.Files;
@@ -136,32 +137,7 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     public async Task DeleteFile_RemovesBlobShareLinksAndFile()
     {
         var (owner, ownerId) = await RegisterAsync();
-        var file = new FileItem
-        {
-            OwnerId = ownerId,
-            FileName = "to-delete.txt",
-            ContentType = "text/plain",
-            Size = 5,
-            CreatedAt = DateTimeOffset.UtcNow,
-            UploadedAt = DateTimeOffset.UtcNow
-        };
-        await using (var seed = await database.DbFactory.CreateDbContextAsync(Ct))
-        {
-            seed.Files.Add(file);
-            seed.ShareLinks.Add(new ShareLink
-            {
-                FileId = file.Id,
-                TokenHash = ShareToken.Hash(ShareToken.Generate()),
-                CreatedAt = DateTimeOffset.UtcNow
-            });
-            await seed.SaveChangesAsync(Ct);
-        }
-
-        var container = database.Factory.Services.GetRequiredService<BlobServiceClient>()
-            .GetBlobContainerClient(FileStorage.ContainerName);
-        await container.CreateIfNotExistsAsync(cancellationToken: Ct);
-        var blob = container.GetBlobClient(file.BlobName);
-        await blob.UploadAsync(BinaryData.FromString("hello"), Ct);
+        var (file, blob) = await SeedFileAsync(ownerId, DateTimeOffset.UtcNow, uploaded: true);
 
         var response = await owner.PostAsync(
             $"/files/{file.Id}",
@@ -173,6 +149,44 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
         Assert.False(await db.Files.AnyAsync(f => f.Id == file.Id, Ct));
         Assert.False(await db.ShareLinks.AnyAsync(link => link.FileId == file.Id, Ct));
+    }
+
+    [Fact]
+    public async Task Cleanup_DeletesExpiredContentAndAbandonedUploadsOnly()
+    {
+        var (_, ownerId) = await RegisterAsync();
+        var now = DateTimeOffset.UtcNow;
+        var expiredPasteId = await SeedPasteAsync(ownerId, "expired", now.AddMinutes(-1));
+        var expiredThreadId = await SeedThreadAsync(expiredPasteId);
+        await SeedShareLinkAsync(expiredPasteId, maxViews: null, expiredThreadId);
+        var livePasteId = await SeedPasteAsync(ownerId, "live", now.AddHours(1));
+        var expiredFile = await SeedFileAsync(ownerId, now.AddDays(-1), uploaded: true, expiresAt: now.AddMinutes(-1));
+        var abandonedUpload = await SeedFileAsync(ownerId, now - FileStorage.UploadLifetime, uploaded: false);
+        var pendingUpload = await SeedFileAsync(ownerId, now.AddMinutes(-1), uploaded: false);
+        var liveFile = await SeedFileAsync(ownerId, now.AddDays(-1), uploaded: true);
+
+        await using (var cleanupDb = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            await ExpiredContentCleanup.RunAsync(
+                cleanupDb, database.Factory.Services.GetRequiredService<FileStorage>(), now, Ct);
+        }
+
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.False(await db.Pastes.AnyAsync(paste => paste.Id == expiredPasteId, Ct));
+        Assert.False(await db.ShareLinks.AnyAsync(link => link.PasteId == expiredPasteId, Ct));
+        Assert.True(await db.Pastes.AnyAsync(paste => paste.Id == livePasteId, Ct));
+        foreach (var (file, blob) in new[] { expiredFile, abandonedUpload })
+        {
+            Assert.False(await db.Files.AnyAsync(f => f.Id == file.Id, Ct));
+            Assert.False(await db.ShareLinks.AnyAsync(link => link.FileId == file.Id, Ct));
+            Assert.False(await blob.ExistsAsync(Ct));
+        }
+
+        foreach (var (file, blob) in new[] { pendingUpload, liveFile })
+        {
+            Assert.True(await db.Files.AnyAsync(f => f.Id == file.Id, Ct));
+            Assert.True(await blob.ExistsAsync(Ct));
+        }
     }
 
     private HttpClient CreateClient() =>
@@ -199,9 +213,9 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         return (client, userId);
     }
 
-    private async Task<Guid> SeedPasteAsync(string ownerId, string title)
+    private async Task<Guid> SeedPasteAsync(string ownerId, string title, DateTimeOffset? expiresAt = null)
     {
-        var paste = new Paste { OwnerId = ownerId, Title = title, CreatedAt = DateTimeOffset.UtcNow };
+        var paste = new Paste { OwnerId = ownerId, Title = title, CreatedAt = DateTimeOffset.UtcNow, ExpiresAt = expiresAt };
 
         await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
         db.Pastes.Add(paste);
@@ -217,6 +231,42 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         db.Threads.Add(thread);
         await db.SaveChangesAsync(Ct);
         return thread.Id;
+    }
+
+    private async Task<(FileItem File, BlobClient Blob)> SeedFileAsync(
+        string ownerId,
+        DateTimeOffset createdAt,
+        bool uploaded,
+        DateTimeOffset? expiresAt = null)
+    {
+        var file = new FileItem
+        {
+            OwnerId = ownerId,
+            FileName = "seeded.txt",
+            ContentType = "text/plain",
+            Size = 5,
+            CreatedAt = createdAt,
+            UploadedAt = uploaded ? createdAt : null,
+            ExpiresAt = expiresAt
+        };
+        await using (var db = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            db.Files.Add(file);
+            db.ShareLinks.Add(new ShareLink
+            {
+                FileId = file.Id,
+                TokenHash = ShareToken.Hash(ShareToken.Generate()),
+                CreatedAt = createdAt
+            });
+            await db.SaveChangesAsync(Ct);
+        }
+
+        var container = database.Factory.Services.GetRequiredService<BlobServiceClient>()
+            .GetBlobContainerClient(FileStorage.ContainerName);
+        await container.CreateIfNotExistsAsync(cancellationToken: Ct);
+        var blob = container.GetBlobClient(file.BlobName);
+        await blob.UploadAsync(BinaryData.FromString("hello"), Ct);
+        return (file, blob);
     }
 
     private async Task<string> SeedShareLinkAsync(Guid pasteId, int? maxViews, Guid? threadId = null)
