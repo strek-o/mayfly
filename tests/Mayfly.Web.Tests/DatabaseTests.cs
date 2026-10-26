@@ -1,10 +1,12 @@
 using System.Net;
 using System.Text.RegularExpressions;
+using Azure.Storage.Blobs;
 using Mayfly.Web.Data;
 using Mayfly.Web.Files;
 using Mayfly.Web.Sharing;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Mayfly.Web.Tests;
 
@@ -127,6 +129,49 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
         Assert.True(await db.Pastes.AnyAsync(paste => paste.Id == pasteId, Ct));
+    }
+
+    [Fact]
+    public async Task DeleteFile_RemovesBlobShareLinksAndFile()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var file = new FileItem
+        {
+            OwnerId = ownerId,
+            FileName = "to-delete.txt",
+            ContentType = "text/plain",
+            Size = 5,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UploadedAt = DateTimeOffset.UtcNow
+        };
+        await using (var seed = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            seed.Files.Add(file);
+            seed.ShareLinks.Add(new ShareLink
+            {
+                FileId = file.Id,
+                TokenHash = ShareToken.Hash(ShareToken.Generate()),
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+            await seed.SaveChangesAsync(Ct);
+        }
+
+        var container = database.Factory.Services.GetRequiredService<BlobServiceClient>()
+            .GetBlobContainerClient(FileStorage.ContainerName);
+        await container.CreateIfNotExistsAsync(cancellationToken: Ct);
+        var blob = container.GetBlobClient(file.BlobName);
+        await blob.UploadAsync(BinaryData.FromString("hello"), Ct);
+
+        var response = await owner.PostAsync(
+            $"/files/{file.Id}",
+            Form(await GetAntiforgeryTokenAsync(owner, $"/files/{file.Id}"), ("_handler", "delete-file")),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.False(await blob.ExistsAsync(Ct));
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.False(await db.Files.AnyAsync(f => f.Id == file.Id, Ct));
+        Assert.False(await db.ShareLinks.AnyAsync(link => link.FileId == file.Id, Ct));
     }
 
     private HttpClient CreateClient() =>

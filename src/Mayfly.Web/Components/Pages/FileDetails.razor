@@ -8,6 +8,7 @@
 @inject IDbContextFactory<MayflyDbContext> DbFactory
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager Navigation
+@inject FileStorage Storage
 
 @if (file is not null)
 {
@@ -34,6 +35,11 @@
     <p><a href="files/@file.Id/download" data-enhance-nav="false">Download</a></p>
 
     <ShareLinksPanel FileId="file.Id" />
+
+    <form method="post" @formname="delete-file" @onsubmit="DeleteAsync" data-confirm="Delete this file with all its links?">
+        <AntiforgeryToken />
+        <button type="submit">Delete file</button>
+    </form>
 }
 
 @code {
@@ -62,5 +68,18 @@
         {
             Navigation.NotFound();
         }
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (file is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.Files.Where(f => f.Id == file.Id && f.OwnerId == file.OwnerId).DeleteWithBlobsAsync(db, Storage);
+
+        Navigation.NavigateTo("files");
     }
 }
