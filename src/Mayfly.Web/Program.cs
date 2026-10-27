@@ -1,5 +1,6 @@
 using Azure.Identity;
 using Azure.Storage.Blobs;
+using Mayfly.Core.Cleanup;
 using Mayfly.Core.Data;
 using Mayfly.Core.Files;
 using Mayfly.Web.Components;
@@ -73,6 +74,18 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 
 var app = builder.Build();
+
+if (args is ["cleanup"])
+{
+    await using var db = await app.Services.GetRequiredService<IDbContextFactory<MayflyDbContext>>().CreateDbContextAsync();
+    var result = await ExpiredContentCleanup.RunAsync(db, app.Services.GetRequiredService<FileStorage>(), DateTimeOffset.UtcNow);
+    app.Logger.LogInformation(
+        "Deleted {ExpiredPastes} expired pastes, {ExpiredFiles} expired files and {AbandonedUploads} abandoned uploads",
+        result.ExpiredPastes,
+        result.ExpiredFiles,
+        result.AbandonedUploads);
+    return;
+}
 
 app.UseForwardedHeaders();
 

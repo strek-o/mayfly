@@ -19,10 +19,12 @@ public static class ExpiredContentCleanup
         var expiredPastes = await db.Pastes.WhereExpired(now).DeleteWithShareLinksAsync(db, cancellationToken);
         var expiredFiles = await db.Files
             .WhereExpired(now)
+            .OrderBy(file => file.ExpiresAt)
             .Take(FileBatchSize)
             .DeleteWithBlobsAsync(db, storage, cancellationToken);
         var abandonedUploads = await db.Files
             .Where(file => file.UploadedAt == null && file.CreatedAt <= abandonedBefore)
+            .OrderBy(file => file.CreatedAt)
             .Take(FileBatchSize)
             .DeleteWithBlobsAsync(db, storage, cancellationToken);
 
