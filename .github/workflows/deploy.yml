@@ -55,7 +55,7 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Terraform init
-        run: terraform init
+        run: terraform init -lockfile=readonly
 
       - name: Read running image tag
         id: running
