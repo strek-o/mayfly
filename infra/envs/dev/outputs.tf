@@ -37,7 +37,3 @@ output "app_identity_name" {
 output "app_identity_client_id" {
   value = data.azurerm_user_assigned_identity.app.client_id
 }
-
-output "cleanup_job_name" {
-  value = module.cleanup_job.name
-}

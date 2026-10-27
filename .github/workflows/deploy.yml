@@ -67,7 +67,7 @@ jobs:
         env:
           TF_VAR_image_tag: ${{ steps.running.outputs.image_tag }}
         run: |
-          terraform plan -out=tfplan -replace=module.container_app_environment.azapi_resource.this
+          terraform plan -out=tfplan -replace=module.container_app_environment.azurerm_container_app_environment.this
           terraform apply tfplan
 
       - name: Allow runner access to SQL
@@ -144,29 +144,6 @@ jobs:
             sleep 10
           done
           echo "::error::$url did not serve $TF_VAR_image_tag as ready"
-          exit 1
-
-      - name: Run the cleanup job once
-        run: |
-          group="$(terraform output -raw resource_group_name)"
-          job="$(terraform output -raw cleanup_job_name)"
-          execution="$(az containerapp job start --resource-group "$group" --name "$job" --query name --output tsv)"
-          for attempt in $(seq 1 30); do
-            status="$(az containerapp job execution show               --resource-group "$group"               --name "$job"               --job-execution-name "$execution"               --query properties.status               --output tsv || true)"
-            case "$status" in
-              Succeeded)
-                echo "Cleanup job execution $execution succeeded"
-                exit 0
-                ;;
-              Failed | Stopped | Degraded)
-                echo "::error::Cleanup job execution $execution ended as $status"
-                exit 1
-                ;;
-            esac
-            echo "Attempt $attempt: execution $execution is '$status', retrying in 10s"
-            sleep 10
-          done
-          echo "::error::Cleanup job execution $execution did not finish"
           exit 1
 
       - name: Remove runner access to SQL

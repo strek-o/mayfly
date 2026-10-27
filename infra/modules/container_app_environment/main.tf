@@ -11,40 +11,23 @@ resource "azurerm_log_analytics_workspace" "this" {
   tags = var.tags
 }
 
-data "azurerm_resource_group" "this" {
-  name = var.resource_group_name
-}
+resource "azurerm_container_app_environment" "this" {
+  name                = "cae-${var.name}"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  logs_destination    = "azure-monitor"
 
-resource "azapi_resource" "this" {
-  type      = "Microsoft.App/managedEnvironments@2026-07-01"
-  name      = "cae-${var.name}"
-  parent_id = data.azurerm_resource_group.this.id
-  location  = var.location
-  tags      = var.tags
-
-  schema_validation_enabled = false
-
-  body = {
-    properties = {
-      environmentMode = "WorkloadProfiles"
-      appLogsConfiguration = {
-        destination = "azure-monitor"
-      }
-      workloadProfiles = [
-        {
-          name                = "Consumption"
-          workloadProfileType = "Consumption"
-        }
-      ]
-    }
+  workload_profile {
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
   }
 
-  response_export_values = ["properties.defaultDomain"]
+  tags = var.tags
 }
 
 resource "azurerm_monitor_diagnostic_setting" "this" {
   name                           = "log-analytics"
-  target_resource_id             = azapi_resource.this.id
+  target_resource_id             = azurerm_container_app_environment.this.id
   log_analytics_workspace_id     = azurerm_log_analytics_workspace.this.id
   log_analytics_destination_type = "Dedicated"
 
@@ -57,7 +40,10 @@ resource "azurerm_monitor_diagnostic_setting" "this" {
   }
 }
 
-moved {
-  from = azurerm_container_app_environment.this
-  to   = azapi_resource.this
+removed {
+  from = azapi_resource.this
+
+  lifecycle {
+    destroy = false
+  }
 }
