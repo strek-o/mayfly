@@ -1,7 +1,6 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Mayfly.Core/Mayfly.Core.csproj" />
-    <Project Path="src/Mayfly.Functions/Mayfly.Functions.csproj" />
     <Project Path="src/Mayfly.Web/Mayfly.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
