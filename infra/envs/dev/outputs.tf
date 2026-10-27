@@ -37,3 +37,15 @@ output "app_identity_name" {
 output "app_identity_client_id" {
   value = data.azurerm_user_assigned_identity.app.client_id
 }
+
+output "function_app_name" {
+  value = module.function_app.name
+}
+
+output "func_identity_name" {
+  value = data.azurerm_user_assigned_identity.func.name
+}
+
+output "func_identity_client_id" {
+  value = data.azurerm_user_assigned_identity.func.client_id
+}

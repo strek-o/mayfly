@@ -101,6 +101,8 @@ jobs:
             echo "connection_string=Server=tcp:$(terraform output -raw sql_server_fqdn),1433;Initial Catalog=$(terraform output -raw sql_database_name);Authentication=Active Directory Default;Encrypt=True"
             echo "app_identity_name=$(terraform output -raw app_identity_name)"
             echo "app_identity_client_id=$(terraform output -raw app_identity_client_id)"
+            echo "func_identity_name=$(terraform output -raw func_identity_name)"
+            echo "func_identity_client_id=$(terraform output -raw func_identity_client_id)"
           } >> "$GITHUB_OUTPUT"
 
       - name: Apply database migrations
@@ -119,12 +121,44 @@ jobs:
         uses: azure/sql-action@eb1f9a80487ca52b90f41a473f53da4943526994 # v2.4
         with:
           connection-string: ${{ steps.sql.outputs.connection_string }}
-          path: infra/sql/app-user.sql
+          path: infra/sql/database-user.sql
           arguments: >-
             -b
-            -v AppIdentityName=${{ steps.sql.outputs.app_identity_name }}
-            -v AppIdentityClientId=${{ steps.sql.outputs.app_identity_client_id }}
+            -v IdentityName=${{ steps.sql.outputs.app_identity_name }}
+            -v IdentityClientId=${{ steps.sql.outputs.app_identity_client_id }}
           skip-firewall-check: true
+
+      - name: Grant functions identity access to database
+        uses: azure/sql-action@eb1f9a80487ca52b90f41a473f53da4943526994 # v2.4
+        with:
+          connection-string: ${{ steps.sql.outputs.connection_string }}
+          path: infra/sql/database-user.sql
+          arguments: >-
+            -b
+            -v IdentityName=${{ steps.sql.outputs.func_identity_name }}
+            -v IdentityClientId=${{ steps.sql.outputs.func_identity_client_id }}
+          skip-firewall-check: true
+
+      - name: Deploy functions
+        run: |
+          package="$RUNNER_TEMP/functions"
+          dotnet publish "$GITHUB_WORKSPACE/src/Mayfly.Functions" --configuration Release --output "$package"
+          (cd "$package" && zip --quiet --recurse-paths "$RUNNER_TEMP/functions.zip" .)
+          az functionapp deployment source config-zip             --resource-group "$(terraform output -raw resource_group_name)"             --name "$(terraform output -raw function_app_name)"             --src "$RUNNER_TEMP/functions.zip"             --output none
+
+      - name: Wait for the cleanup function to be registered
+        run: |
+          for attempt in $(seq 1 18); do
+            functions="$(az functionapp function list               --resource-group "$(terraform output -raw resource_group_name)"               --name "$(terraform output -raw function_app_name)"               --query "[].name"               --output tsv || true)"
+            if grep --quiet "/Cleanup$" <<< "$functions"; then
+              echo "Registered: Cleanup"
+              exit 0
+            fi
+            echo "Attempt $attempt: Cleanup not registered yet, retrying in 10s"
+            sleep 10
+          done
+          echo "::error::Cleanup function was not registered"
+          exit 1
 
       - name: Roll out the new image
         run: |
