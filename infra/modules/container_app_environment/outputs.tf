@@ -1,9 +1,9 @@
 output "id" {
-  value = azurerm_container_app_environment.this.id
+  value = azapi_resource.this.id
 }
 
 output "default_domain" {
-  value = azurerm_container_app_environment.this.default_domain
+  value = azapi_resource.this.output.properties.defaultDomain
 }
 
 output "log_analytics_workspace_id" {
