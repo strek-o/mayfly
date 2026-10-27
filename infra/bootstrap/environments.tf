@@ -107,3 +107,39 @@ resource "azurerm_role_assignment" "app_storage" {
   principal_id         = azurerm_user_assigned_identity.app[each.key].principal_id
   principal_type       = "ServicePrincipal"
 }
+
+resource "azurerm_user_assigned_identity" "func" {
+  for_each = local.environments
+
+  name                = "id-mayfly-func-${each.key}"
+  resource_group_name = azurerm_resource_group.bootstrap.name
+  location            = azurerm_resource_group.bootstrap.location
+  tags                = merge(local.tags, { environment = each.key })
+}
+
+resource "azurerm_role_assignment" "github_func_operator" {
+  for_each = local.environments
+
+  scope                = azurerm_user_assigned_identity.func[each.key].id
+  role_definition_name = "Managed Identity Operator"
+  principal_id         = azurerm_user_assigned_identity.github[each.key].principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+resource "azurerm_role_assignment" "func_storage_blobs" {
+  for_each = local.environments
+
+  scope                = azurerm_resource_group.env[each.key].id
+  role_definition_name = "Storage Blob Data Owner"
+  principal_id         = azurerm_user_assigned_identity.func[each.key].principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+resource "azurerm_role_assignment" "func_storage_tables" {
+  for_each = local.environments
+
+  scope                = azurerm_resource_group.env[each.key].id
+  role_definition_name = "Storage Table Data Contributor"
+  principal_id         = azurerm_user_assigned_identity.func[each.key].principal_id
+  principal_type       = "ServicePrincipal"
+}
