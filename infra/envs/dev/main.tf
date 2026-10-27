@@ -25,6 +25,11 @@ data "azurerm_user_assigned_identity" "app" {
   resource_group_name = "rg-mayfly-bootstrap"
 }
 
+data "azurerm_user_assigned_identity" "func" {
+  name                = "id-mayfly-func-${local.environment}"
+  resource_group_name = "rg-mayfly-bootstrap"
+}
+
 module "container_app_environment" {
   source = "../../modules/container_app_environment"
 
@@ -61,9 +66,28 @@ module "storage_account" {
   name                 = "mayfly-${local.environment}"
   resource_group_name  = data.azurerm_resource_group.env.name
   location             = data.azurerm_resource_group.env.location
-  container_names      = ["files"]
+  container_names      = ["files", "deployments"]
   cors_allowed_origins = ["https://ca-mayfly-${local.environment}.${module.container_app_environment.default_domain}"]
   tags                 = local.tags
+}
+
+module "function_app" {
+  source = "../../modules/function_app"
+
+  name                          = "mayfly-${local.environment}"
+  resource_group_name           = data.azurerm_resource_group.env.name
+  location                      = data.azurerm_resource_group.env.location
+  identity_id                   = data.azurerm_user_assigned_identity.func.id
+  identity_client_id            = data.azurerm_user_assigned_identity.func.client_id
+  storage_account_name          = module.storage_account.name
+  deployment_container_endpoint = "${module.storage_account.blob_endpoint}deployments"
+  tags                          = local.tags
+
+  app_settings = {
+    AZURE_CLIENT_ID           = data.azurerm_user_assigned_identity.func.client_id
+    ConnectionStrings__Mayfly = "Server=tcp:${module.mssql_database.server_fqdn},1433;Database=${module.mssql_database.database_name};Authentication=Active Directory Managed Identity;User Id=${data.azurerm_user_assigned_identity.func.client_id};Encrypt=True"
+    Storage__BlobEndpoint     = module.storage_account.blob_endpoint
+  }
 }
 
 module "key_vault" {
