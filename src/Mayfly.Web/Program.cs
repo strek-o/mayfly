@@ -2,7 +2,6 @@ using Azure.Identity;
 using Azure.Storage.Blobs;
 using Mayfly.Core.Data;
 using Mayfly.Core.Files;
-using Mayfly.Web.Cleanup;
 using Mayfly.Web.Components;
 using Mayfly.Web.Files;
 using Mayfly.Web.Sharing;
@@ -42,7 +41,6 @@ builder.Services.AddSingleton(_ => storageConnectionString is not null
             ?? throw new InvalidOperationException("Storage:BlobEndpoint or Storage:ConnectionString is required.")),
         AppIdentityCredential()));
 builder.Services.AddSingleton<FileStorage>();
-builder.Services.AddHostedService<ExpiredContentCleanupService>();
 if (storageConnectionString is not null)
 {
     builder.Services.AddHostedService<LocalStorageSetup>();
