@@ -19,4 +19,8 @@ public static class Expiration
     public static IQueryable<T> WhereNotExpired<T>(this IQueryable<T> items, DateTimeOffset now)
         where T : IExpiring =>
         items.Where(item => item.ExpiresAt == null || item.ExpiresAt > now);
+
+    public static IQueryable<T> WhereExpired<T>(this IQueryable<T> items, DateTimeOffset now)
+        where T : IExpiring =>
+        items.Where(item => item.ExpiresAt <= now);
 }
