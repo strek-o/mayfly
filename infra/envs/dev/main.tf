@@ -47,12 +47,26 @@ module "container_app" {
   tags                         = local.tags
 
   env = {
-    APP_VERSION                    = var.image_tag
-    AZURE_CLIENT_ID                = data.azurerm_user_assigned_identity.app.client_id
-    ConnectionStrings__Mayfly      = "Server=tcp:${module.mssql_database.server_fqdn},1433;Database=${module.mssql_database.database_name};Authentication=Active Directory Managed Identity;User Id=${data.azurerm_user_assigned_identity.app.client_id};Encrypt=True"
-    DataProtection__KeyVaultKeyUri = azurerm_key_vault_key.data_protection.versionless_id
-    Storage__BlobEndpoint          = module.storage_account.blob_endpoint
+    APP_VERSION                           = var.image_tag
+    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.this.connection_string
+    AZURE_CLIENT_ID                       = data.azurerm_user_assigned_identity.app.client_id
+    ConnectionStrings__Mayfly             = "Server=tcp:${module.mssql_database.server_fqdn},1433;Database=${module.mssql_database.database_name};Authentication=Active Directory Managed Identity;User Id=${data.azurerm_user_assigned_identity.app.client_id};Encrypt=True"
+    DataProtection__KeyVaultKeyUri        = azurerm_key_vault_key.data_protection.versionless_id
+    Storage__BlobEndpoint                 = module.storage_account.blob_endpoint
   }
+}
+
+resource "azurerm_application_insights" "this" {
+  name                = "appi-mayfly-${local.environment}"
+  resource_group_name = data.azurerm_resource_group.env.name
+  location            = data.azurerm_resource_group.env.location
+  workspace_id        = module.container_app_environment.log_analytics_workspace_id
+  application_type    = "web"
+  retention_in_days   = 30
+
+  local_authentication_enabled = false
+
+  tags = local.tags
 }
 
 module "storage_account" {
