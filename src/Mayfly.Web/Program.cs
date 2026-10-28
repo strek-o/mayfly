@@ -1,4 +1,5 @@
 using Azure.Identity;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Azure.Storage.Blobs;
 using Mayfly.Core.Data;
 using Mayfly.Core.Files;
@@ -13,6 +14,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using OpenTelemetry.Instrumentation.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -64,6 +66,13 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     })
     .AddEntityFrameworkStores<MayflyDbContext>()
     .AddSignInManager();
+
+if (builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"] is not null)
+{
+    builder.Services.AddOpenTelemetry().UseAzureMonitor(options => options.Credential = AppIdentityCredential());
+    builder.Services.Configure<AspNetCoreTraceInstrumentationOptions>(options =>
+        options.Filter = context => !context.Request.Path.StartsWithSegments("/healthz"));
+}
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<MayflyDbContext>(tags: ["ready"]);
