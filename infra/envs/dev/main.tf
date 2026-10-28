@@ -25,11 +25,6 @@ data "azurerm_user_assigned_identity" "app" {
   resource_group_name = "rg-mayfly-bootstrap"
 }
 
-import {
-  to = module.container_app_environment.azurerm_container_app_environment.this
-  id = "${data.azurerm_resource_group.env.id}/providers/Microsoft.App/managedEnvironments/cae-mayfly-${local.environment}"
-}
-
 module "container_app_environment" {
   source = "../../modules/container_app_environment"
 

@@ -67,7 +67,7 @@ jobs:
         env:
           TF_VAR_image_tag: ${{ steps.running.outputs.image_tag }}
         run: |
-          terraform plan -out=tfplan -replace=module.container_app_environment.azurerm_container_app_environment.this
+          terraform plan -out=tfplan
           terraform apply tfplan
 
       - name: Allow runner access to SQL
