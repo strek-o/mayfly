@@ -13,7 +13,7 @@ public static class GuestEntryEndpoint
 
     public static IEndpointRouteBuilder MapGuestEntryEndpoint(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/s/{token}/entries", AddEntryAsync);
+        app.MapPost("/s/{token}/entries", AddEntryAsync).RequireRateLimiting(ShareLinkRateLimit.PolicyName);
         return app;
     }
 

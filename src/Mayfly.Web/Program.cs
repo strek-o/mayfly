@@ -50,6 +50,7 @@ if (storageConnectionString is not null)
 
 builder.Services.AddSingleton<ShareSession>();
 builder.Services.AddSingleton<ShareTokenProtector>();
+builder.Services.AddShareLinkRateLimit();
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
@@ -86,6 +87,7 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
+app.UseRateLimiter();
 app.UseAntiforgery();
 
 var appVersion = builder.Configuration["APP_VERSION"];

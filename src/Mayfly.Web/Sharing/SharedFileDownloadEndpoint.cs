@@ -10,7 +10,7 @@ public static class SharedFileDownloadEndpoint
 {
     public static IEndpointRouteBuilder MapSharedFileDownloadEndpoint(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/s/{token}/download", DownloadAsync);
+        app.MapPost("/s/{token}/download", DownloadAsync).RequireRateLimiting(ShareLinkRateLimit.PolicyName);
         return app;
     }
 

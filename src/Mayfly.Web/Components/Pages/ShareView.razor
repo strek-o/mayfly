@@ -3,7 +3,9 @@
 @using Mayfly.Web.Files
 @using Mayfly.Web.Time
 @using Mayfly.Web.Sharing
+@using Microsoft.AspNetCore.RateLimiting
 @using Microsoft.EntityFrameworkCore
+@attribute [EnableRateLimiting(ShareLinkRateLimit.PolicyName)]
 @inject IDbContextFactory<MayflyDbContext> DbFactory
 @inject ShareSession Session
 @inject NavigationManager Navigation
