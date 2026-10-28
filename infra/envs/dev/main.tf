@@ -69,6 +69,75 @@ resource "azurerm_application_insights" "this" {
   tags = local.tags
 }
 
+data "azurerm_role_definition" "owner" {
+  name  = "Owner"
+  scope = data.azurerm_resource_group.env.id
+}
+
+resource "azurerm_monitor_action_group" "owners" {
+  name                = "ag-mayfly-${local.environment}"
+  resource_group_name = data.azurerm_resource_group.env.name
+  short_name          = "mayfly-${local.environment}"
+
+  arm_role_receiver {
+    name                    = "owners"
+    role_id                 = data.azurerm_role_definition.owner.role_definition_id
+    use_common_alert_schema = true
+  }
+
+  tags = local.tags
+}
+
+resource "azurerm_monitor_metric_alert" "server_errors" {
+  name                = "mayfly-${local.environment}-server-errors"
+  resource_group_name = data.azurerm_resource_group.env.name
+  scopes              = [azurerm_application_insights.this.id]
+  description         = "The app answered requests with a 5xx status code."
+  severity            = 2
+
+  criteria {
+    metric_namespace = "microsoft.insights/components"
+    metric_name      = "requests/count"
+    aggregation      = "Count"
+    operator         = "GreaterThan"
+    threshold        = 0
+
+    dimension {
+      name     = "request/resultCode"
+      operator = "StartsWith"
+      values   = ["5"]
+    }
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.owners.id
+  }
+
+  tags = local.tags
+}
+
+resource "azurerm_monitor_metric_alert" "replica_restarts" {
+  name                = "mayfly-${local.environment}-replica-restarts"
+  resource_group_name = data.azurerm_resource_group.env.name
+  scopes              = [module.container_app.id]
+  description         = "A replica of the container app restarted."
+  severity            = 1
+
+  criteria {
+    metric_namespace = "Microsoft.App/containerApps"
+    metric_name      = "RestartCount"
+    aggregation      = "Maximum"
+    operator         = "GreaterThan"
+    threshold        = 0
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.owners.id
+  }
+
+  tags = local.tags
+}
+
 module "storage_account" {
   source = "../../modules/storage_account"
 
