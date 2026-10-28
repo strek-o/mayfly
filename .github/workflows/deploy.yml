@@ -55,7 +55,7 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Terraform init
-        run: terraform init -lockfile=readonly
+        run: terraform init
 
       - name: Read running image tag
         id: running
@@ -119,11 +119,11 @@ jobs:
         uses: azure/sql-action@eb1f9a80487ca52b90f41a473f53da4943526994 # v2.4
         with:
           connection-string: ${{ steps.sql.outputs.connection_string }}
-          path: infra/sql/database-user.sql
+          path: infra/sql/app-user.sql
           arguments: >-
             -b
-            -v IdentityName=${{ steps.sql.outputs.app_identity_name }}
-            -v IdentityClientId=${{ steps.sql.outputs.app_identity_client_id }}
+            -v AppIdentityName=${{ steps.sql.outputs.app_identity_name }}
+            -v AppIdentityClientId=${{ steps.sql.outputs.app_identity_client_id }}
           skip-firewall-check: true
 
       - name: Roll out the new image

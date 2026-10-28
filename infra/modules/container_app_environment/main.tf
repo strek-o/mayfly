@@ -25,11 +25,3 @@ resource "azurerm_container_app_environment" "this" {
 
   tags = var.tags
 }
-
-removed {
-  from = azapi_resource.this
-
-  lifecycle {
-    destroy = false
-  }
-}
