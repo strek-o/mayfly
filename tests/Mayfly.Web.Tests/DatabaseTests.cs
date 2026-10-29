@@ -82,7 +82,7 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     public async Task UploadStart_RejectsFileThatWouldExceedStorageQuota()
     {
         var (owner, _) = await RegisterAsync();
-        var antiforgery = await GetAntiforgeryTokenAsync(owner, "/files");
+        var antiforgery = await GetAntiforgeryTokenAsync(owner, "/desktop");
         var filesThatFit = FileQuota.MaxBytesPerUser / FileUploadEndpoints.MaxFileSize;
 
         for (var i = 0; i < filesThatFit; i++)
@@ -131,6 +131,23 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
         Assert.True(await db.Pastes.AnyAsync(paste => paste.Id == pasteId, Ct));
+    }
+
+    [Fact]
+    public async Task Desktop_ListsOnlyOwnFilesWithTimeLeft()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var (_, otherId) = await RegisterAsync();
+        var now = DateTimeOffset.UtcNow;
+        await SeedFileAsync(ownerId, now, uploaded: true, now.AddMinutes(12), "mine.txt");
+        await SeedFileAsync(otherId, now, uploaded: true, fileName: "theirs.txt");
+
+        var page = await owner.GetStringAsync("/desktop", Ct);
+
+        Assert.Contains("mine.txt", page);
+        Assert.Contains("12 min", page);
+        Assert.Contains("no view limit", page);
+        Assert.DoesNotContain("theirs.txt", page);
     }
 
     [Fact]
@@ -237,12 +254,13 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         string ownerId,
         DateTimeOffset createdAt,
         bool uploaded,
-        DateTimeOffset? expiresAt = null)
+        DateTimeOffset? expiresAt = null,
+        string fileName = "seeded.txt")
     {
         var file = new FileItem
         {
             OwnerId = ownerId,
-            FileName = "seeded.txt",
+            FileName = fileName,
             ContentType = "text/plain",
             Size = 5,
             CreatedAt = createdAt,

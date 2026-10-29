@@ -81,6 +81,6 @@
         await using var db = await DbFactory.CreateDbContextAsync();
         await db.Files.Where(f => f.Id == file.Id && f.OwnerId == file.OwnerId).DeleteWithBlobsAsync(db, Storage);
 
-        Navigation.NavigateTo("files");
+        Navigation.NavigateTo("desktop");
     }
 }

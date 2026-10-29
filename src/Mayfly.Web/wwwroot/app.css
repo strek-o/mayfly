@@ -49,10 +49,12 @@
 :root {
   color-scheme: light;
   --ink: #2a1f3d;
+  --ink-soft: #54496a;
   --mute: #6a5f7d;
   --rule: #e3dcef;
   --field: #c9bfe0;
   --soft: #f1edf7;
+  --tint: #f7f4fb;
   --paper: #fff;
   --accent: #5b3fd1;
   --accent-strong: #4a2fbf;
@@ -273,6 +275,15 @@ button:disabled {
   color: var(--soon);
   font-size: 0.875rem;
   font-weight: 500;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .validation-errors {

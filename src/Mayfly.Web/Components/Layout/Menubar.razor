@@ -1,5 +1,6 @@
 @using Mayfly.Core.Data
 @using Mayfly.Web.Files
+@using Microsoft.AspNetCore.Components.Sections
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<MayflyDbContext> DbFactory
@@ -10,13 +11,15 @@
 
     <nav class="modes" aria-label="Mode">
         <NavLink href="pastes" Match="NavLinkMatch.Prefix">Paste</NavLink>
-        <NavLink href="files" Match="NavLinkMatch.Prefix">Desktop</NavLink>
+        <NavLink href="desktop" Match="NavLinkMatch.Prefix">Desktop</NavLink>
     </nav>
 
     <p class="quota">
         @FileSize.Format(usedBytes) of @FileSize.Format(FileQuota.MaxBytesPerUser)
         <span class="quota-bar" aria-hidden="true"><span style="width: @(UsedPercent)%"></span></span>
     </p>
+
+    <SectionOutlet SectionName="menubar-actions" />
 
     <details class="account" data-menu>
         <summary aria-label="Account">@Initial</summary>

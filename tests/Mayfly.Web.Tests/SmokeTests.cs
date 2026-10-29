@@ -84,16 +84,18 @@ public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact]
-    public async Task PastesPage_ForAnonymousVisitor_RedirectsToLogin()
+    [Theory]
+    [InlineData("/pastes", "?ReturnUrl=%2Fpastes")]
+    [InlineData("/desktop", "?ReturnUrl=%2Fdesktop")]
+    public async Task AppPage_ForAnonymousVisitor_RedirectsToLogin(string url, string expectedQuery)
     {
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
-        var response = await client.GetAsync("/pastes", TestContext.Current.CancellationToken);
+        var response = await client.GetAsync(url, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Equal("/account/login", response.Headers.Location?.AbsolutePath);
-        Assert.Equal("?ReturnUrl=%2Fpastes", response.Headers.Location?.Query);
+        Assert.Equal(expectedQuery, response.Headers.Location?.Query);
     }
 
     [Theory]
