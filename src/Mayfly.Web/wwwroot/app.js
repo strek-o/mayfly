@@ -25,6 +25,14 @@ document.addEventListener("click", async (event) => {
   }
 });
 
+document.addEventListener("click", (event) => {
+  for (const menu of document.querySelectorAll("details[data-menu][open]")) {
+    if (!menu.contains(event.target)) {
+      menu.open = false;
+    }
+  }
+});
+
 document.addEventListener("submit", (event) => {
   const message = event.target.dataset?.confirm;
   if (message && !confirm(message)) {
