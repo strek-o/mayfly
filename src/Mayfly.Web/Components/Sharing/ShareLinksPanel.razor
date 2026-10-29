@@ -3,118 +3,115 @@
 @using Mayfly.Core.Data
 @using Mayfly.Core.Time
 @using Mayfly.Web.Sharing
+@using Mayfly.Web.Time
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<MayflyDbContext> DbFactory
 @inject ShareTokenProtector TokenProtector
 @inject NavigationManager Navigation
 
-<section>
+<section class="share">
     <h2>Share links</h2>
 
-    <EditForm Model="LinkInput" FormName="create-share-link" OnValidSubmit="CreateAsync" method="post">
-        <DataAnnotationsValidator />
-        <ValidationSummary />
-
-        @if (PasteId is not null)
-        {
-            <label>
-                <InputCheckbox @bind-Value="LinkInput.CanAppend" />
-                Visitors can add entries
-            </label>
-        }
-
-        <label>
-            Link expires
-            <InputSelect @bind-Value="LinkInput.Lifetime">
-                <option value="@Lifetime.Forever">Never</option>
-                <option value="@Lifetime.OneHour">In 1 hour</option>
-                <option value="@Lifetime.OneDay">In 1 day</option>
-                <option value="@Lifetime.SevenDays">In 7 days</option>
-            </InputSelect>
-        </label>
-
-        <label>
-            View limit (empty = unlimited, 1 = burn after read)
-            <InputNumber @bind-Value="LinkInput.MaxViews" min="1" max="1000" />
-        </label>
-
-        <label>
-            Password (optional)
-            <InputText @bind-Value="LinkInput.Password" type="password" autocomplete="new-password" />
-        </label>
-
-        <button type="submit">Create link</button>
-    </EditForm>
-
-    @if (links.Count == 0)
-    {
-        <p>No share links yet.</p>
-    }
-    else
+    @if (active.Count > 0)
     {
         <form method="post" @formname="revoke-share-link" @onsubmit="RevokeAsync">
             <AntiforgeryToken />
 
-            <table>
-                <thead>
-                    <tr>
-                        <th>Link</th>
-                        <th>Created</th>
-                        <th>Access</th>
-                        <th>Expires</th>
-                        <th>Views</th>
-                        <th>Status</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var link in links)
-                    {
-                        var status = link.GetStatus(now);
+            <ul class="links">
+                @foreach (var link in active)
+                {
+                    <li>
+                        <div class="url">
+                            @if (LinkUrl(link) is { } url)
+                            {
+                                <input id="share-url-@link.Id" readonly value="@url" aria-label="Share link" />
+                                <button type="button" class="button-quiet" data-copy="share-url-@link.Id">Copy</button>
+                            }
+                            else
+                            {
+                                <span>Link not available</span>
+                            }
+                        </div>
 
-                        <tr>
-                            <td>
-                                @if (status != ShareLinkStatus.Active)
-                                {
-                                    <text>—</text>
-                                }
-                                else if (LinkUrl(link) is { } url)
-                                {
-                                    <input id="share-url-@link.Id" readonly value="@url" size="50" />
-                                    <button type="button" data-copy="share-url-@link.Id">Copy</button>
-                                }
-                                else
-                                {
-                                    <text>Not available</text>
-                                }
-                            </td>
-                            <td>
-                                <LocalTime Value="link.CreatedAt" />
-                            </td>
-                            <td>@(link.CanAppend ? "Read and add" : "Read only")@(link.PasswordHash is null ? "" : " · password")</td>
-                            <td>
-                                @if (link.ExpiresAt is { } expiresAt)
-                                {
-                                    <LocalTime Value="expiresAt" />
-                                }
-                                else
-                                {
-                                    <text>Never</text>
-                                }
-                            </td>
-                            <td>@link.ViewCount / @(link.MaxViews?.ToString() ?? "∞")</td>
-                            <td>@status</td>
-                            <td>
-                                @if (status == ShareLinkStatus.Active)
-                                {
-                                    <button type="submit" name="RevokeId" value="@link.Id">Revoke</button>
-                                }
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+                        <p class="facts">
+                            <span>@DescribeViews(link)</span>
+                            <span>@DescribeExpiry(link)</span>
+                            @if (link.PasswordHash is not null)
+                            {
+                                <span>password</span>
+                            }
+                            @if (link.CanAppend)
+                            {
+                                <span>guests can add entries</span>
+                            }
+                            <button type="submit" class="button-danger" name="RevokeId" value="@link.Id">Revoke</button>
+                        </p>
+                    </li>
+                }
+            </ul>
         </form>
+    }
+
+    <details class="new-link" open="@(showForm || active.Count == 0)">
+        <summary>New link</summary>
+
+        <EditForm Model="LinkInput" FormName="create-share-link" OnValidSubmit="CreateAsync"
+                  OnInvalidSubmit="() => showForm = true" method="post">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="fields">
+                <label>
+                    Link expires
+                    <InputSelect @bind-Value="LinkInput.Lifetime">
+                        <option value="@Lifetime.Forever">Never</option>
+                        <option value="@Lifetime.OneHour">In 1 hour</option>
+                        <option value="@Lifetime.OneDay">In 1 day</option>
+                        <option value="@Lifetime.SevenDays">In 7 days</option>
+                    </InputSelect>
+                </label>
+
+                <label>
+                    View limit
+                    <InputNumber @bind-Value="LinkInput.MaxViews" min="1" max="1000" placeholder="No limit" />
+                </label>
+
+                <label>
+                    Password
+                    <InputText @bind-Value="LinkInput.Password" type="password" autocomplete="new-password"
+                               placeholder="Optional" />
+                </label>
+            </div>
+
+            @if (PasteId is not null)
+            {
+                <label>
+                    <InputCheckbox @bind-Value="LinkInput.CanAppend" />
+                    Visitors can add entries
+                </label>
+            }
+
+            <p class="hint">A view limit of 1 burns the link after the first visit.</p>
+
+            <button type="submit">Create link</button>
+        </EditForm>
+    </details>
+
+    @if (past.Count > 0)
+    {
+        <details class="past">
+            <summary>Past links (@past.Count)</summary>
+
+            <ul>
+                @foreach (var (link, status) in past)
+                {
+                    <li>
+                        <span class="stamp">@DescribeStatus(status)</span>
+                        created <LocalTime Value="link.CreatedAt" /> · @link.ViewCount @(link.ViewCount == 1 ? "view" : "views")
+                    </li>
+                }
+            </ul>
+        </details>
     }
 </section>
 
@@ -134,9 +131,13 @@
     [SupplyParameterFromForm(FormName = "revoke-share-link")]
     private Guid? RevokeId { get; set; }
 
-    private List<ShareLink> links = [];
+    private List<ShareLink> active = [];
+
+    private List<(ShareLink Link, ShareLinkStatus Status)> past = [];
 
     private DateTimeOffset now;
+
+    private bool showForm;
 
     protected override async Task OnInitializedAsync()
     {
@@ -212,12 +213,34 @@
         now = DateTimeOffset.UtcNow;
 
         await using var db = await DbFactory.CreateDbContextAsync();
-        links = await db.ShareLinks
+        var links = await db.ShareLinks
             .AsNoTracking()
             .Where(InScope)
             .OrderByDescending(link => link.CreatedAt)
             .ToListAsync();
+
+        active = links.Where(link => link.GetStatus(now) == ShareLinkStatus.Active).ToList();
+        past = links
+            .Select(link => (link, link.GetStatus(now)))
+            .Where(item => item.Item2 != ShareLinkStatus.Active)
+            .ToList();
     }
+
+    private static string DescribeViews(ShareLink link) =>
+        link.MaxViews is { } maxViews
+            ? $"{maxViews - link.ViewCount} of {maxViews} {(maxViews == 1 ? "view" : "views")} left"
+            : "no view limit";
+
+    private string DescribeExpiry(ShareLink link) =>
+        link.ExpiresAt is { } expiresAt ? $"expires in {TimeLeft.Format(expiresAt, now)}" : "never expires";
+
+    private static string DescribeStatus(ShareLinkStatus status) => status switch
+    {
+        ShareLinkStatus.Revoked => "Revoked",
+        ShareLinkStatus.Expired => "Expired",
+        ShareLinkStatus.UsedUp => "Used up",
+        _ => "Active"
+    };
 
     private Expression<Func<ShareLink, bool>> InScope =>
         link => link.PasteId == PasteId && link.ThreadId == ThreadId && link.FileId == FileId;

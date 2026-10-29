@@ -153,6 +153,43 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     }
 
     [Fact]
+    public async Task ShareLinksPanel_CreatesAndRevokesFileLink()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var (file, _) = await SeedFileAsync(ownerId, DateTimeOffset.UtcNow, uploaded: true);
+        var url = $"/files/{file.Id}";
+
+        var created = await owner.PostAsync(
+            url,
+            Form(await GetAntiforgeryTokenAsync(owner, url),
+                ("_handler", "create-share-link"),
+                ("LinkInput.Lifetime", "OneDay"),
+                ("LinkInput.MaxViews", "3")),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, created.StatusCode);
+        Guid linkId;
+        await using (var db = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            linkId = await db.ShareLinks.Where(link => link.FileId == file.Id && link.MaxViews == 3).Select(link => link.Id).SingleAsync(Ct);
+        }
+        Assert.Contains("3 of 3 views left", await owner.GetStringAsync(url, Ct));
+
+        var revoked = await owner.PostAsync(
+            url,
+            Form(await GetAntiforgeryTokenAsync(owner, url),
+                ("_handler", "revoke-share-link"),
+                ("RevokeId", linkId.ToString())),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, revoked.StatusCode);
+        var page = await owner.GetStringAsync(url, Ct);
+        Assert.DoesNotContain("3 of 3 views left", page);
+        Assert.Contains("Past links (1)", page);
+        Assert.Contains("Revoked</span>", page);
+    }
+
+    [Fact]
     public async Task DeleteFile_RemovesBlobShareLinksAndFile()
     {
         var (owner, ownerId) = await RegisterAsync();
