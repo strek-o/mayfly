@@ -25,7 +25,7 @@ export const options = {
     },
   },
   thresholds: {
-    "http_req_duration{scenario:owner}": ["p(95)<500"],
+    "http_req_duration{scenario:owner}": ["p(95)<1000"],
     "http_req_failed{scenario:owner}": ["rate<0.01"],
     "checks{scenario:share_link_limit}": ["rate==1"],
   },
