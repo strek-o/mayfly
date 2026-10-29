@@ -61,68 +61,64 @@
     </symbol>
 </svg>
 
-@if (files.Count == 0)
-{
-    <p class="empty">Your desktop is empty. Upload a file and choose how long it stays.</p>
-}
-else
-{
-    <ul class="desktop">
-        @foreach (var (file, link) in files)
-        {
-            var soon = TimeLeft.IsSoon(file.ExpiresAt, now);
-            var extension = Path.GetExtension(file.FileName).TrimStart('.').ToUpperInvariant();
-            var timeLeft = file.ExpiresAt is { } expiry ? TimeLeft.Format(expiry, now) : null;
+<ul class="desktop">
+    @foreach (var (file, link) in files)
+    {
+        var soon = TimeLeft.IsSoon(file.ExpiresAt, now);
+        var extension = Path.GetExtension(file.FileName).TrimStart('.').ToUpperInvariant();
+        var timeLeft = file.ExpiresAt is { } expiry ? TimeLeft.Format(expiry, now) : null;
 
-            <li class="item @(soon ? "soon" : null)">
-                <a href="files/@file.Id" aria-describedby="card-@file.Id">
-                    <span class="glyph">
-                        <svg aria-hidden="true"><use href="#file-glyph" /></svg>
-                        @if (extension is { Length: > 0 and <= 4 })
-                        {
-                            <b>@extension</b>
-                        }
-                    </span>
-                    <span class="text">
-                        <span class="name">@file.FileName</span>
-                        <span class="meta">@FileSize.Format(file.Size)</span>
-                    </span>
-                    <span class="left">@(timeLeft ?? "stays")</span>
-                </a>
+        <li class="item @(soon ? "soon" : null)"
+            data-expires="@file.ExpiresAt?.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")">
+            <a href="files/@file.Id" aria-describedby="card-@file.Id">
+                <span class="glyph">
+                    <svg aria-hidden="true"><use href="#file-glyph" /></svg>
+                    @if (extension is { Length: > 0 and <= 4 })
+                    {
+                        <b>@extension</b>
+                    }
+                </span>
+                <span class="text">
+                    <span class="name">@file.FileName</span>
+                    <span class="meta">@FileSize.Format(file.Size)</span>
+                </span>
+                <span class="left" data-time-left>@(timeLeft ?? "stays")</span>
+            </a>
 
-                <div class="card" id="card-@file.Id" role="tooltip">
-                    <header>
-                        <b>@file.FileName</b>
-                        <span>@(extension.Length > 0 ? $"{extension} file" : "File")</span>
-                    </header>
+            <div class="card" id="card-@file.Id" role="tooltip">
+                <header>
+                    <b>@file.FileName</b>
+                    <span>@(extension.Length > 0 ? $"{extension} file" : "File")</span>
+                </header>
 
-                    <div class="when">
-                        @if (file.ExpiresAt is { } expiresAt)
-                        {
-                            <span class="stamp @(soon ? "stamp-soon" : null)">@timeLeft left</span>
-                            <small>gone <LocalTime Value="expiresAt" /></small>
-                        }
-                        else
-                        {
-                            <span class="stamp">No expiry</span>
-                        }
-                    </div>
-
-                    <dl>
-                        <dt>Size</dt>
-                        <dd>@FileSize.Format(file.Size)</dd>
-                        <dt>Uploaded</dt>
-                        <dd><LocalTime Value="file.UploadedAt!.Value" /></dd>
-                        <dt>Link</dt>
-                        <dd>@link</dd>
-                    </dl>
-
-                    <footer>Click for details and sharing</footer>
+                <div class="when">
+                    @if (file.ExpiresAt is { } expiresAt)
+                    {
+                        <span class="stamp @(soon ? "stamp-soon" : null)" data-time-left-stamp>@timeLeft left</span>
+                        <small>gone <LocalTime Value="expiresAt" /></small>
+                    }
+                    else
+                    {
+                        <span class="stamp">No expiry</span>
+                    }
                 </div>
-            </li>
-        }
-    </ul>
-}
+
+                <dl>
+                    <dt>Size</dt>
+                    <dd>@FileSize.Format(file.Size)</dd>
+                    <dt>Uploaded</dt>
+                    <dd><LocalTime Value="file.UploadedAt!.Value" /></dd>
+                    <dt>Link</dt>
+                    <dd>@link</dd>
+                </dl>
+
+                <footer>Click for details and sharing</footer>
+            </div>
+        </li>
+    }
+</ul>
+
+<p class="empty">Your desktop is empty. Upload a file and choose how long it stays.</p>
 
 @code {
     [CascadingParameter]

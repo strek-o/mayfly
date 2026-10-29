@@ -42,6 +42,11 @@
   text-align: center;
 }
 
+.desktop:not(:has(.item)),
+.desktop:has(.item) + .empty {
+  display: none;
+}
+
 .desktop {
   display: grid;
   grid-auto-columns: 7.25rem;
@@ -57,6 +62,17 @@
 
 .item {
   position: relative;
+  transition:
+    opacity 600ms ease-out,
+    transform 600ms ease-out,
+    filter 600ms ease-out;
+}
+
+.item.gone {
+  opacity: 0;
+  filter: blur(3px);
+  transform: translateY(-0.5rem) scale(0.94);
+  pointer-events: none;
 }
 
 .item > a {

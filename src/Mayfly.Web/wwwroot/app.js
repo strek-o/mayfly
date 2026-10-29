@@ -138,3 +138,54 @@ function applyLocalTime() {
 
 document.addEventListener("DOMContentLoaded", applyLocalTime);
 Blazor.addEventListener("enhancedload", applyLocalTime);
+
+const minute = 60_000;
+const hour = 60 * minute;
+const day = 24 * hour;
+
+function formatTimeLeft(left) {
+  const minutes = Math.max(1, Math.round(left / minute));
+  if (minutes < 60) {
+    return { label: `${minutes} min`, soon: true };
+  }
+
+  const hours = Math.round(left / hour);
+  const label = hours < 24 ? `${hours} h` : `${Math.round(left / day)} d`;
+  return { label, soon: false };
+}
+
+function countDown() {
+  let next = 30_000;
+  for (const item of document.querySelectorAll("[data-expires]")) {
+    const left = Date.parse(item.dataset.expires) - Date.now();
+    if (left <= 0) {
+      vanish(item);
+      continue;
+    }
+
+    const { label, soon } = formatTimeLeft(left);
+    item.classList.toggle("soon", soon);
+    const badge = item.querySelector("[data-time-left]");
+    if (badge) {
+      badge.textContent = label;
+    }
+
+    const stamp = item.querySelector("[data-time-left-stamp]");
+    if (stamp) {
+      stamp.textContent = `${label} left`;
+      stamp.classList.toggle("stamp-soon", soon);
+    }
+
+    next = Math.min(next, left);
+  }
+
+  setTimeout(countDown, Math.max(1_000, next));
+}
+
+function vanish(item) {
+  item.removeAttribute("data-expires");
+  item.classList.add("gone");
+  setTimeout(() => item.remove(), 600);
+}
+
+countDown();

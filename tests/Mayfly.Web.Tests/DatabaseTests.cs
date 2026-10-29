@@ -139,13 +139,15 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         var (owner, ownerId) = await RegisterAsync();
         var (_, otherId) = await RegisterAsync();
         var now = DateTimeOffset.UtcNow;
-        await SeedFileAsync(ownerId, now, uploaded: true, now.AddMinutes(12), "mine.txt");
+        var expiresAt = now.AddMinutes(12);
+        await SeedFileAsync(ownerId, now, uploaded: true, expiresAt, "mine.txt");
         await SeedFileAsync(otherId, now, uploaded: true, fileName: "theirs.txt");
 
         var page = await owner.GetStringAsync("/desktop", Ct);
 
         Assert.Contains("mine.txt", page);
         Assert.Contains("12 min", page);
+        Assert.Contains($"data-expires=\"{expiresAt.UtcDateTime:yyyy-MM-dd'T'HH:mm:ss'Z'}\"", page);
         Assert.Contains("no view limit", page);
         Assert.DoesNotContain("theirs.txt", page);
     }
