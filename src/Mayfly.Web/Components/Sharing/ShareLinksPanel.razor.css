@@ -81,6 +81,16 @@
   gap: 0 0.75rem;
 }
 
+.fields label {
+  min-width: 0;
+}
+
+.fields ::deep input,
+.fields ::deep select {
+  width: 100%;
+  min-width: 0;
+}
+
 .hint {
   margin: 0 0 0.75rem;
   color: var(--mute);
