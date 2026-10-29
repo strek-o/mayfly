@@ -11,7 +11,7 @@
          data-expires="@File.ExpiresAt?.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")">
     <header>
         <h1 id="window-title">@File.FileName</h1>
-        <a class="close" href="desktop" aria-label="Close" data-window-close>
+        <a class="close" href="@CloseHref" aria-label="Close" data-window-close>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
         </a>
     </header>
@@ -55,11 +55,14 @@
     [Parameter, EditorRequired]
     public DateTimeOffset Now { get; set; }
 
+    [Parameter, EditorRequired]
+    public string CloseHref { get; set; } = default!;
+
     private async Task DeleteAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
         await db.Files.Where(f => f.Id == File.Id && f.OwnerId == File.OwnerId).DeleteWithBlobsAsync(db, Storage);
 
-        Navigation.NavigateTo("desktop");
+        Navigation.NavigateTo(CloseHref);
     }
 }

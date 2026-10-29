@@ -17,6 +17,8 @@ public class MayflyDbContext(DbContextOptions<MayflyDbContext> options)
 
     public DbSet<FileItem> Files => Set<FileItem>();
 
+    public DbSet<Folder> Folders => Set<Folder>();
+
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -65,7 +67,14 @@ public class MayflyDbContext(DbContextOptions<MayflyDbContext> options)
             file.Property(f => f.ContentType).HasMaxLength(255);
             file.HasIndex(f => f.ExpiresAt);
             file.HasOne<ApplicationUser>().WithMany().HasForeignKey(f => f.OwnerId);
+            file.HasOne<Folder>().WithMany().HasForeignKey(f => f.FolderId).OnDelete(DeleteBehavior.NoAction);
             file.ToTable(table => table.HasCheckConstraint("CK_Files_Size", "[Size] >= 0"));
+        });
+
+        modelBuilder.Entity<Folder>(folder =>
+        {
+            folder.Property(f => f.Name).HasMaxLength(100);
+            folder.HasOne<ApplicationUser>().WithMany().HasForeignKey(f => f.OwnerId);
         });
     }
 }

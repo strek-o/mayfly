@@ -159,6 +159,7 @@ async function uploadFile(form, file) {
   const antiforgery = form.elements.__RequestVerificationToken.value;
   const contentType = file.type || "application/octet-stream";
   const customExpiresAt = form.elements.CustomExpiresAt;
+  const folderId = form.elements.FolderId?.value;
 
   const started = await postForm(form.action, antiforgery, {
     FileName: file.name,
@@ -169,6 +170,7 @@ async function uploadFile(form, file) {
     ...(customExpiresAt.disabled || !customExpiresAt.value
       ? {}
       : { CustomExpiresAt: customExpiresAt.value }),
+    ...(folderId ? { FolderId: folderId } : {}),
   });
   const { id, uploadUrl } = await started.json();
 

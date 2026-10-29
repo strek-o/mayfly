@@ -22,7 +22,7 @@ namespace Mayfly.Web.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("Mayfly.Web.Data.ApplicationUser", b =>
+            modelBuilder.Entity("Mayfly.Core.Data.ApplicationUser", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
@@ -88,7 +88,7 @@ namespace Mayfly.Web.Data.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("Mayfly.Web.Data.FileItem", b =>
+            modelBuilder.Entity("Mayfly.Core.Data.FileItem", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -110,6 +110,9 @@ namespace Mayfly.Web.Data.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
+                    b.Property<Guid?>("FolderId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("OwnerId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -124,6 +127,8 @@ namespace Mayfly.Web.Data.Migrations
 
                     b.HasIndex("ExpiresAt");
 
+                    b.HasIndex("FolderId");
+
                     b.HasIndex("OwnerId");
 
                     b.ToTable("Files", t =>
@@ -132,7 +137,32 @@ namespace Mayfly.Web.Data.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Mayfly.Web.Data.Paste", b =>
+            modelBuilder.Entity("Mayfly.Core.Data.Folder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("OwnerId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
+
+                    b.ToTable("Folders");
+                });
+
+            modelBuilder.Entity("Mayfly.Core.Data.Paste", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -162,7 +192,7 @@ namespace Mayfly.Web.Data.Migrations
                     b.ToTable("Pastes");
                 });
 
-            modelBuilder.Entity("Mayfly.Web.Data.PasteThread", b =>
+            modelBuilder.Entity("Mayfly.Core.Data.PasteThread", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -186,7 +216,7 @@ namespace Mayfly.Web.Data.Migrations
                     b.ToTable("Threads");
                 });
 
-            modelBuilder.Entity("Mayfly.Web.Data.ShareLink", b =>
+            modelBuilder.Entity("Mayfly.Core.Data.ShareLink", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -252,7 +282,7 @@ namespace Mayfly.Web.Data.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Mayfly.Web.Data.ThreadEntry", b =>
+            modelBuilder.Entity("Mayfly.Core.Data.ThreadEntry", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -452,53 +482,67 @@ namespace Mayfly.Web.Data.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("Mayfly.Web.Data.FileItem", b =>
+            modelBuilder.Entity("Mayfly.Core.Data.FileItem", b =>
                 {
-                    b.HasOne("Mayfly.Web.Data.ApplicationUser", null)
+                    b.HasOne("Mayfly.Core.Data.Folder", null)
+                        .WithMany()
+                        .HasForeignKey("FolderId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("Mayfly.Core.Data.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Mayfly.Web.Data.Paste", b =>
+            modelBuilder.Entity("Mayfly.Core.Data.Folder", b =>
                 {
-                    b.HasOne("Mayfly.Web.Data.ApplicationUser", null)
+                    b.HasOne("Mayfly.Core.Data.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Mayfly.Web.Data.PasteThread", b =>
+            modelBuilder.Entity("Mayfly.Core.Data.Paste", b =>
                 {
-                    b.HasOne("Mayfly.Web.Data.Paste", null)
+                    b.HasOne("Mayfly.Core.Data.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Mayfly.Core.Data.PasteThread", b =>
+                {
+                    b.HasOne("Mayfly.Core.Data.Paste", null)
                         .WithMany("Threads")
                         .HasForeignKey("PasteId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Mayfly.Web.Data.ShareLink", b =>
+            modelBuilder.Entity("Mayfly.Core.Data.ShareLink", b =>
                 {
-                    b.HasOne("Mayfly.Web.Data.FileItem", null)
+                    b.HasOne("Mayfly.Core.Data.FileItem", null)
                         .WithMany()
                         .HasForeignKey("FileId")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("Mayfly.Web.Data.Paste", null)
+                    b.HasOne("Mayfly.Core.Data.Paste", null)
                         .WithMany()
                         .HasForeignKey("PasteId");
 
-                    b.HasOne("Mayfly.Web.Data.PasteThread", null)
+                    b.HasOne("Mayfly.Core.Data.PasteThread", null)
                         .WithMany()
                         .HasForeignKey("ThreadId")
                         .OnDelete(DeleteBehavior.NoAction);
                 });
 
-            modelBuilder.Entity("Mayfly.Web.Data.ThreadEntry", b =>
+            modelBuilder.Entity("Mayfly.Core.Data.ThreadEntry", b =>
                 {
-                    b.HasOne("Mayfly.Web.Data.PasteThread", null)
+                    b.HasOne("Mayfly.Core.Data.PasteThread", null)
                         .WithMany("Entries")
                         .HasForeignKey("ThreadId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -516,7 +560,7 @@ namespace Mayfly.Web.Data.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
                 {
-                    b.HasOne("Mayfly.Web.Data.ApplicationUser", null)
+                    b.HasOne("Mayfly.Core.Data.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -525,7 +569,7 @@ namespace Mayfly.Web.Data.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
                 {
-                    b.HasOne("Mayfly.Web.Data.ApplicationUser", null)
+                    b.HasOne("Mayfly.Core.Data.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -534,7 +578,7 @@ namespace Mayfly.Web.Data.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserPasskey<string>", b =>
                 {
-                    b.HasOne("Mayfly.Web.Data.ApplicationUser", null)
+                    b.HasOne("Mayfly.Core.Data.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -591,7 +635,7 @@ namespace Mayfly.Web.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Mayfly.Web.Data.ApplicationUser", null)
+                    b.HasOne("Mayfly.Core.Data.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -600,19 +644,19 @@ namespace Mayfly.Web.Data.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
                 {
-                    b.HasOne("Mayfly.Web.Data.ApplicationUser", null)
+                    b.HasOne("Mayfly.Core.Data.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Mayfly.Web.Data.Paste", b =>
+            modelBuilder.Entity("Mayfly.Core.Data.Paste", b =>
                 {
                     b.Navigation("Threads");
                 });
 
-            modelBuilder.Entity("Mayfly.Web.Data.PasteThread", b =>
+            modelBuilder.Entity("Mayfly.Core.Data.PasteThread", b =>
                 {
                     b.Navigation("Entries");
                 });

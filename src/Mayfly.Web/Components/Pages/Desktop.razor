@@ -1,7 +1,10 @@
 @page "/desktop"
 @page "/desktop/files/{FileId:guid}"
+@page "/desktop/folders/{FolderId:guid}"
+@page "/desktop/folders/{FolderId:guid}/files/{FileId:guid}"
 @attribute [Authorize]
 @layout AppLayout
+@using System.ComponentModel.DataAnnotations
 @using Mayfly.Core.Data
 @using Mayfly.Core.Time
 @using Mayfly.Web.Files
@@ -14,14 +17,35 @@
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager Navigation
 
-<PageTitle>@(openFile?.FileName ?? "Desktop")</PageTitle>
+<PageTitle>@(openFile?.FileName ?? folder?.Name ?? "Desktop")</PageTitle>
 
 <SectionContent SectionName="menubar-actions">
+    @if (FolderId is null)
+    {
+        <details class="new-folder" data-menu open="@showFolderForm">
+            <summary class="button button-quiet">New folder</summary>
+
+            <EditForm Model="FolderInput" FormName="create-folder" OnValidSubmit="CreateFolderAsync"
+                      OnInvalidSubmit="() => showFolderForm = true" method="post">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <label>
+                    Name
+                    <InputText @bind-Value="FolderInput.Name" autocomplete="off" />
+                </label>
+
+                <button type="submit">Create folder</button>
+            </EditForm>
+        </details>
+    }
+
     <details class="upload" data-menu>
         <summary class="button">Upload</summary>
 
         <form action="files/uploads" method="post" data-upload data-max-size="@FileUploadEndpoints.MaxFileSize">
             <AntiforgeryToken />
+            <input type="hidden" name="FolderId" value="@FolderId" />
 
             <label>
                 Files
@@ -56,11 +80,11 @@
 
 @if (openFile is null)
 {
-    <h1 class="visually-hidden">Desktop</h1>
+    <h1 class="visually-hidden">@(folder?.Name ?? "Desktop")</h1>
 }
 else
 {
-    <FileWindow File="openFile" Now="now" />
+    <FileWindow File="openFile" Now="now" CloseHref="@ViewHref" />
 }
 
 <svg class="visually-hidden" aria-hidden="true">
@@ -68,9 +92,36 @@ else
         <path d="M1.5 1.5h30l13 13v40h-43z" fill="#fff" stroke="#d8d0ea" />
         <path d="M31.5 1.5v13h13" fill="#efeaf8" stroke="#d8d0ea" />
     </symbol>
+    <symbol id="folder-glyph" viewBox="0 0 56 46">
+        <path d="M1 6a4 4 0 0 1 4-4h15l6 6h25a4 4 0 0 1 4 4v29a4 4 0 0 1-4 4H5a4 4 0 0 1-4-4z" fill="#b8a9e8" />
+        <path d="M1 14h54v27a4 4 0 0 1-4 4H5a4 4 0 0 1-4-4z" fill="#e4dcfb" />
+    </symbol>
 </svg>
 
+@if (folder is not null)
+{
+    <nav class="path" aria-label="Location">
+        <a href="desktop">Desktop</a>
+        <span aria-current="page">@folder.Name</span>
+    </nav>
+}
+
 <ul class="desktop">
+    @foreach (var (id, name, count) in folders)
+    {
+        <li class="item folder">
+            <a href="desktop/folders/@id">
+                <span class="glyph">
+                    <svg aria-hidden="true"><use href="#folder-glyph" /></svg>
+                </span>
+                <span class="text">
+                    <span class="name">@name</span>
+                </span>
+                <span class="left">@count @(count == 1 ? "file" : "files")</span>
+            </a>
+        </li>
+    }
+
     @foreach (var (file, link) in files)
     {
         var soon = TimeLeft.IsSoon(file.ExpiresAt, now);
@@ -79,7 +130,7 @@ else
 
         <li class="item @(soon ? "soon" : null)"
             data-expires="@file.ExpiresAt?.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")">
-            <a href="desktop/files/@file.Id" aria-describedby="card-@file.Id"
+            <a href="@ViewHref/files/@file.Id" aria-describedby="card-@file.Id"
                aria-current="@(file.Id == FileId ? "true" : null)" data-download="files/@file.Id/download">
                 <span class="glyph">
                     <svg aria-hidden="true"><use href="#file-glyph" /></svg>
@@ -128,7 +179,11 @@ else
     }
 </ul>
 
-<p class="empty">Your desktop is empty. Drop a file here and choose how long it stays.</p>
+<p class="empty">
+    @(folder is null
+        ? "Your desktop is empty. Drop a file here and choose how long it stays."
+        : "This folder is empty. Drop files here and choose how long they stay.")
+</p>
 
 <p class="drop-hint">Drop files anywhere to upload · up to @FileSize.Format(FileUploadEndpoints.MaxFileSize) each</p>
 
@@ -138,27 +193,75 @@ else
 
 @code {
     [Parameter]
+    public Guid? FolderId { get; set; }
+
+    [Parameter]
     public Guid? FileId { get; set; }
 
     [CascadingParameter]
     private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
 
+    [SupplyParameterFromForm(FormName = "create-folder")]
+    private FolderInputModel FolderInput { get; set; } = default!;
+
+    private List<(Guid Id, string Name, int Count)> folders = [];
+
     private List<(FileItem File, string Link)> files = [];
+
+    private Folder? folder;
 
     private FileItem? openFile;
 
+    private string ownerId = "";
+
+    private bool showFolderForm;
+
     private readonly DateTimeOffset now = DateTimeOffset.UtcNow;
+
+    private string ViewHref => FolderId is { } folderId ? $"desktop/folders/{folderId}" : "desktop";
 
     protected override async Task OnInitializedAsync()
     {
+        FolderInput ??= new();
+
         var user = (await AuthenticationState).User;
-        var ownerId = UserManager.GetUserId(user)
+        ownerId = UserManager.GetUserId(user)
             ?? throw new InvalidOperationException("Signed-in user has no id claim.");
 
         await using var db = await DbFactory.CreateDbContextAsync();
+
+        if (FolderId is { } folderId)
+        {
+            folder = await db.Folders
+                .AsNoTracking()
+                .SingleOrDefaultAsync(f => f.Id == folderId && f.OwnerId == ownerId);
+            if (folder is null)
+            {
+                Navigation.NotFound();
+                return;
+            }
+        }
+        else
+        {
+            var counts = await db.Files
+                .Where(file => file.OwnerId == ownerId && file.UploadedAt != null && file.FolderId != null)
+                .WhereNotExpired(now)
+                .GroupBy(file => file.FolderId!.Value)
+                .Select(group => new { FolderId = group.Key, Count = group.Count() })
+                .ToDictionaryAsync(item => item.FolderId, item => item.Count);
+
+            folders = (await db.Folders
+                    .AsNoTracking()
+                    .Where(f => f.OwnerId == ownerId)
+                    .OrderBy(f => f.Name)
+                    .ToListAsync())
+                .Select(f => (f.Id, f.Name, counts.GetValueOrDefault(f.Id)))
+                .ToList();
+        }
+
         var items = await db.Files
             .AsNoTracking()
-            .Where(file => file.OwnerId == ownerId && file.UploadedAt != null)
+            .Where(file => file.OwnerId == ownerId && file.UploadedAt != null && file.FolderId == FolderId)
             .WhereNotExpired(now)
             .OrderBy(file => file.ExpiresAt == null)
             .ThenBy(file => file.ExpiresAt)
@@ -186,6 +289,20 @@ else
         }
     }
 
+    private async Task CreateFolderAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.Folders.Add(new Folder
+        {
+            OwnerId = ownerId,
+            Name = FolderInput.Name.Trim(),
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        Navigation.NavigateTo("desktop");
+    }
+
     private static string DescribeLinks(List<ShareLink> links) => links switch
     {
         [] => "Not shared",
@@ -198,4 +315,11 @@ else
         }.OfType<string>()),
         _ => $"{links.Count} active links"
     };
+
+    private sealed class FolderInputModel
+    {
+        [Required]
+        [StringLength(100)]
+        public string Name { get; set; } = "";
+    }
 }

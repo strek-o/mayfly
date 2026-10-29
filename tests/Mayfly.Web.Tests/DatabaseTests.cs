@@ -153,6 +153,77 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     }
 
     [Fact]
+    public async Task CreateFolder_KeepsItsFilesOffTheDesktop()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+
+        var created = await owner.PostAsync(
+            "/desktop",
+            Form(await GetAntiforgeryTokenAsync(owner, "/desktop"),
+                ("_handler", "create-folder"),
+                ("FolderInput.Name", "  Screenshots  ")),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, created.StatusCode);
+        Guid folderId;
+        await using (var db = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            folderId = await db.Folders.Where(f => f.OwnerId == ownerId && f.Name == "Screenshots").Select(f => f.Id).SingleAsync(Ct);
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        await SeedFileAsync(ownerId, now, uploaded: true, fileName: "inside.png", folderId: folderId);
+        await SeedFileAsync(ownerId, now, uploaded: true, fileName: "outside.txt");
+
+        var desktop = await owner.GetStringAsync("/desktop", Ct);
+        Assert.Contains("Screenshots", desktop);
+        Assert.Contains("1 file", desktop);
+        Assert.Contains("outside.txt", desktop);
+        Assert.DoesNotContain("inside.png", desktop);
+
+        var inFolder = await owner.GetStringAsync($"/desktop/folders/{folderId}", Ct);
+        Assert.Contains("inside.png", inFolder);
+        Assert.DoesNotContain("outside.txt", inFolder);
+    }
+
+    [Fact]
+    public async Task FolderView_ForAnotherUsersFolder_ReturnsNotFound()
+    {
+        var (_, ownerId) = await RegisterAsync();
+        var (other, _) = await RegisterAsync();
+        var folderId = await SeedFolderAsync(ownerId);
+
+        var response = await other.GetAsync($"/desktop/folders/{folderId}", Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UploadStart_AcceptsOnlyOwnFolder()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var (_, otherId) = await RegisterAsync();
+        var ownFolder = await SeedFolderAsync(ownerId);
+        var foreignFolder = await SeedFolderAsync(otherId);
+        var antiforgery = await GetAntiforgeryTokenAsync(owner, "/desktop");
+
+        var accepted = await owner.PostAsync(
+            "/files/uploads",
+            Form(antiforgery, ("FileName", "own.txt"), ("Size", "5"), ("Lifetime", "Forever"), ("FolderId", ownFolder.ToString())),
+            Ct);
+        var rejected = await owner.PostAsync(
+            "/files/uploads",
+            Form(antiforgery, ("FileName", "foreign.txt"), ("Size", "5"), ("Lifetime", "Forever"), ("FolderId", foreignFolder.ToString())),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.Equal(ownFolder, await db.Files.Where(f => f.OwnerId == ownerId && f.FileName == "own.txt").Select(f => f.FolderId).SingleAsync(Ct));
+        Assert.False(await db.Files.AnyAsync(f => f.FileName == "foreign.txt", Ct));
+    }
+
+    [Fact]
     public async Task FileWindow_ForAnotherUsersFile_ReturnsNotFound()
     {
         var (_, ownerId) = await RegisterAsync();
@@ -306,11 +377,13 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         DateTimeOffset createdAt,
         bool uploaded,
         DateTimeOffset? expiresAt = null,
-        string fileName = "seeded.txt")
+        string fileName = "seeded.txt",
+        Guid? folderId = null)
     {
         var file = new FileItem
         {
             OwnerId = ownerId,
+            FolderId = folderId,
             FileName = fileName,
             ContentType = "text/plain",
             Size = 5,
@@ -336,6 +409,16 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         var blob = container.GetBlobClient(file.BlobName);
         await blob.UploadAsync(BinaryData.FromString("hello"), Ct);
         return (file, blob);
+    }
+
+    private async Task<Guid> SeedFolderAsync(string ownerId)
+    {
+        var folder = new Folder { OwnerId = ownerId, Name = "folder", CreatedAt = DateTimeOffset.UtcNow };
+
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        db.Folders.Add(folder);
+        await db.SaveChangesAsync(Ct);
+        return folder.Id;
     }
 
     private async Task<string> SeedShareLinkAsync(Guid pasteId, int? maxViews, Guid? threadId = null)

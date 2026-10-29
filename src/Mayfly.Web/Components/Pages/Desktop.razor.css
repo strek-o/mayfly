@@ -1,19 +1,23 @@
-.upload {
+.upload,
+.new-folder {
   position: relative;
 }
 
-.upload summary {
+.upload summary,
+.new-folder summary {
   min-height: 1.75rem;
   padding: 0 0.75rem;
   font-size: 0.8125rem;
   list-style: none;
 }
 
-.upload summary::-webkit-details-marker {
+.upload summary::-webkit-details-marker,
+.new-folder summary::-webkit-details-marker {
   display: none;
 }
 
-.upload form {
+.upload form,
+.new-folder ::deep form {
   position: absolute;
   top: calc(100% + 0.5rem);
   right: 0;
@@ -24,8 +28,42 @@
   box-shadow: var(--shadow-float);
 }
 
-.upload button {
+.upload button,
+.new-folder button {
   width: 100%;
+}
+
+.new-folder button {
+  margin-bottom: 0.75rem;
+}
+
+.path {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 1.5rem;
+  margin: 0.875rem 1.25rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.path a {
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+.path a:hover {
+  text-decoration: underline;
+}
+
+.path a::after {
+  content: "›";
+  margin-left: 0.5rem;
+  color: var(--mute);
+}
+
+.path + .desktop {
+  height: calc(100dvh - 5.125rem);
 }
 
 .upload [role="status"] {
@@ -327,7 +365,8 @@
 
   .glyph b,
   .card,
-  .drop-hint {
+  .drop-hint,
+  .new-folder {
     display: none;
   }
 

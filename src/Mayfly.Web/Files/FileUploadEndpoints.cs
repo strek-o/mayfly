@@ -56,6 +56,12 @@ public static class FileUploadEndpoints
         var ownerId = GetOwnerId(user, userManager);
 
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+        if (form.FolderId is { } folderId
+            && !await db.Folders.AnyAsync(folder => folder.Id == folderId && folder.OwnerId == ownerId, cancellationToken))
+        {
+            return Results.BadRequest();
+        }
+
         var usedBytes = await db.Files.GetUsedBytesAsync(ownerId, now, cancellationToken);
         if (usedBytes + form.Size > FileQuota.MaxBytesPerUser)
         {
@@ -65,6 +71,7 @@ public static class FileUploadEndpoints
         var file = new FileItem
         {
             OwnerId = ownerId,
+            FolderId = form.FolderId,
             FileName = fileName,
             ContentType = contentType,
             Size = form.Size,
@@ -140,6 +147,8 @@ public static class FileUploadEndpoints
         public DateTime? CustomExpiresAt { get; set; }
 
         public string? TimeZone { get; set; }
+
+        public Guid? FolderId { get; set; }
     }
 
     public sealed record UploadStarted(Guid Id, Uri UploadUrl);

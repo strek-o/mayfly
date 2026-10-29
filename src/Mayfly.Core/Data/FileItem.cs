@@ -6,6 +6,8 @@ public class FileItem : IExpiring
 
     public required string OwnerId { get; set; }
 
+    public Guid? FolderId { get; set; }
+
     public required string FileName { get; set; }
 
     public required string ContentType { get; set; }
