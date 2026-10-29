@@ -47,6 +47,46 @@
   display: none;
 }
 
+.drop-hint {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1rem;
+  margin: 0;
+  padding: 0.375rem 0.75rem;
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: 0 0 0 1px var(--rule);
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.drop-zone {
+  position: fixed;
+  inset: 3.5rem 0.75rem 0.75rem;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-panel);
+  background: rgb(255 255 255 / 60%);
+}
+
+.drop-zone[hidden] {
+  display: none;
+}
+
+.drop-zone p {
+  margin: 0;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--paper);
+  font-size: 1.125rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+
 .desktop {
   display: grid;
   grid-auto-columns: 7.25rem;
@@ -134,6 +174,7 @@
   text-shadow: 0 1px 0 rgb(255 255 255 / 60%);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .meta {
@@ -280,7 +321,8 @@
   }
 
   .glyph b,
-  .card {
+  .card,
+  .drop-hint {
     display: none;
   }
 
@@ -290,6 +332,7 @@
 
   .name {
     -webkit-line-clamp: 1;
+    line-clamp: 1;
     text-shadow: none;
   }
 

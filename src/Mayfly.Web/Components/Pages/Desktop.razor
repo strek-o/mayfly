@@ -22,8 +22,8 @@
             <AntiforgeryToken />
 
             <label>
-                File
-                <input type="file" name="file" required />
+                Files
+                <input type="file" name="file" multiple required />
             </label>
 
             <label>
@@ -118,7 +118,13 @@
     }
 </ul>
 
-<p class="empty">Your desktop is empty. Upload a file and choose how long it stays.</p>
+<p class="empty">Your desktop is empty. Drop a file here and choose how long it stays.</p>
+
+<p class="drop-hint">Drop files anywhere to upload · up to @FileSize.Format(FileUploadEndpoints.MaxFileSize) each</p>
+
+<div class="drop-zone" data-drop-zone hidden>
+    <p>Drop to upload</p>
+</div>
 
 @code {
     [CascadingParameter]

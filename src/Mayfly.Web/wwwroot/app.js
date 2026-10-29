@@ -47,57 +47,119 @@ document.addEventListener("submit", async (event) => {
   }
 
   event.preventDefault();
-  const file = form.elements.file.files[0];
+  const files = [...form.elements.file.files];
   const status = form.querySelector("[data-upload-status]");
   const button = form.querySelector("button[type=submit]");
-  if (!file) {
+  if (files.length === 0) {
     return;
   }
 
-  if (file.size > Number(form.dataset.maxSize)) {
-    status.textContent = "File is too large.";
+  const tooLarge = files.find(
+    (file) => file.size > Number(form.dataset.maxSize),
+  );
+  if (tooLarge) {
+    status.textContent = `${tooLarge.name} is too large.`;
     return;
   }
 
   button.disabled = true;
-  status.textContent = `Uploading ${file.name}…`;
+  let current = files[0];
 
   try {
-    const antiforgery = form.elements.__RequestVerificationToken.value;
-    const contentType = file.type || "application/octet-stream";
-    const customExpiresAt = form.elements.CustomExpiresAt;
-
-    const started = await postForm(form.action, antiforgery, {
-      FileName: file.name,
-      ContentType: contentType,
-      Size: file.size,
-      Lifetime: form.elements.Lifetime.value,
-      TimeZone: form.elements.TimeZone.value,
-      ...(customExpiresAt.disabled || !customExpiresAt.value
-        ? {}
-        : { CustomExpiresAt: customExpiresAt.value }),
-    });
-    const { id, uploadUrl } = await started.json();
-
-    const uploaded = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "x-ms-blob-type": "BlockBlob", "content-type": contentType },
-      body: file,
-    });
-    if (!uploaded.ok) {
-      throw new Error(`Upload failed with ${uploaded.status}`);
+    for (const [index, file] of files.entries()) {
+      current = file;
+      status.textContent =
+        files.length > 1
+          ? `Uploading ${index + 1} of ${files.length}: ${file.name}…`
+          : `Uploading ${file.name}…`;
+      await uploadFile(form, file);
     }
 
-    await postForm(`${form.action}/${id}/complete`, antiforgery, {});
     location.reload();
   } catch (error) {
     status.textContent =
       error.status === 409
-        ? "Not enough storage space left for this file."
-        : "Upload failed. Check the expiration date and try again.";
+        ? `Not enough storage space left for ${current.name}.`
+        : `${current.name} failed to upload. Check the expiration date and try again.`;
     button.disabled = false;
   }
 });
+
+document.addEventListener("change", (event) => {
+  const input = event.target;
+  if (
+    input instanceof HTMLInputElement &&
+    input.type === "file" &&
+    input.form?.hasAttribute("data-upload")
+  ) {
+    showChosenFiles(input.form);
+  }
+});
+
+document.addEventListener("dragover", (event) => {
+  const zone = document.querySelector("[data-drop-zone]");
+  if (zone && event.dataTransfer?.types.includes("Files")) {
+    event.preventDefault();
+    zone.hidden = false;
+  }
+});
+
+document.addEventListener("dragleave", (event) => {
+  const zone = document.querySelector("[data-drop-zone]");
+  if (zone && !event.relatedTarget) {
+    zone.hidden = true;
+  }
+});
+
+document.addEventListener("drop", (event) => {
+  const zone = document.querySelector("[data-drop-zone]");
+  const form = document.querySelector("form[data-upload]");
+  if (!zone || !form || !event.dataTransfer?.files.length) {
+    return;
+  }
+
+  event.preventDefault();
+  zone.hidden = true;
+  form.elements.file.files = event.dataTransfer.files;
+  form.closest("details").open = true;
+  showChosenFiles(form);
+  form.elements.Lifetime.focus();
+});
+
+function showChosenFiles(form) {
+  const names = [...form.elements.file.files].map((file) => file.name);
+  form.querySelector("[data-upload-status]").textContent =
+    names.length > 0 ? `Ready: ${names.join(", ")}` : "";
+}
+
+async function uploadFile(form, file) {
+  const antiforgery = form.elements.__RequestVerificationToken.value;
+  const contentType = file.type || "application/octet-stream";
+  const customExpiresAt = form.elements.CustomExpiresAt;
+
+  const started = await postForm(form.action, antiforgery, {
+    FileName: file.name,
+    ContentType: contentType,
+    Size: file.size,
+    Lifetime: form.elements.Lifetime.value,
+    TimeZone: form.elements.TimeZone.value,
+    ...(customExpiresAt.disabled || !customExpiresAt.value
+      ? {}
+      : { CustomExpiresAt: customExpiresAt.value }),
+  });
+  const { id, uploadUrl } = await started.json();
+
+  const uploaded = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "x-ms-blob-type": "BlockBlob", "content-type": contentType },
+    body: file,
+  });
+  if (!uploaded.ok) {
+    throw new Error(`Upload failed with ${uploaded.status}`);
+  }
+
+  await postForm(`${form.action}/${id}/complete`, antiforgery, {});
+}
 
 async function postForm(url, antiforgery, fields) {
   const body = new FormData();
