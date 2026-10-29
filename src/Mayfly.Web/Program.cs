@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using OpenTelemetry.Instrumentation.AspNetCore;
+using OpenTelemetry.Resources;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -69,7 +70,9 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 
 if (builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"] is not null)
 {
-    builder.Services.AddOpenTelemetry().UseAzureMonitor(options => options.Credential = AppIdentityCredential());
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(resource => resource.AddService("mayfly-web"))
+        .UseAzureMonitor(options => options.Credential = AppIdentityCredential());
     builder.Services.Configure<AspNetCoreTraceInstrumentationOptions>(options =>
         options.Filter = context => !context.Request.Path.StartsWithSegments("/healthz"));
 }
