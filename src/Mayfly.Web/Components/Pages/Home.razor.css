@@ -1,0 +1,146 @@
+.top {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 1.75rem 0 2rem;
+}
+
+.top h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--mute);
+  font-size: 0.8125rem;
+}
+
+.account button {
+  min-height: 0;
+  padding: 0.25rem 0;
+  background: none;
+  color: var(--ink);
+  font-size: 0.8125rem;
+}
+
+.account button:hover {
+  background: none;
+  text-decoration: underline;
+}
+
+.modes {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100vh;
+}
+
+.modes::after {
+  content: "";
+  position: absolute;
+  top: 14%;
+  bottom: 14%;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(
+    transparent,
+    rgb(91 63 209 / 42%) 25% 75%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+.modes a {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.875rem;
+  padding: 2rem;
+  color: var(--ink);
+  text-align: center;
+  text-decoration: none;
+}
+
+.modes a::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgb(255 255 255 / 55%),
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+.modes a:hover::before,
+.modes a:focus-visible::before {
+  opacity: 1;
+}
+
+.modes a:focus-visible {
+  outline-offset: -0.75rem;
+}
+
+.modes h2 {
+  position: relative;
+  margin: 0;
+  font-size: clamp(2.75rem, 5vw, 4rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  transition: color 200ms ease-out;
+}
+
+.modes a:hover h2,
+.modes a:focus-visible h2 {
+  color: var(--accent);
+}
+
+.modes p {
+  position: relative;
+  max-width: 24rem;
+  margin: 0;
+  color: var(--mute);
+  font-size: 1rem;
+  text-wrap: balance;
+}
+
+@media (max-width: 760px) {
+  .top {
+    padding: 1.25rem 1rem 0;
+  }
+
+  .email {
+    display: none;
+  }
+
+  .modes {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+
+  .modes::after {
+    top: 50%;
+    right: 14%;
+    bottom: auto;
+    left: 14%;
+    width: auto;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(91 63 209 / 42%) 25% 75%,
+      transparent
+    );
+  }
+}

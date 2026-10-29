@@ -5,9 +5,28 @@
 
 <AuthorizeView>
     <Authorized>
-        <h1>Mayfly</h1>
+        <header class="top">
+            <h1>Mayfly</h1>
 
-        <p>Hello from Azure Container Apps.</p>
+            <div class="account">
+                <span class="email">@context.User.Identity?.Name</span>
+                <form action="account/logout" method="post">
+                    <AntiforgeryToken />
+                    <button type="submit">Sign out</button>
+                </form>
+            </div>
+        </header>
+
+        <nav class="modes" aria-label="Mode">
+            <a href="pastes">
+                <h2>Paste</h2>
+                <p>Write notes in threads and keep the history of every entry.</p>
+            </a>
+            <a href="files">
+                <h2>Desktop</h2>
+                <p>Drop files on your desktop and decide how long each one stays.</p>
+            </a>
+        </nav>
     </Authorized>
     <NotAuthorized>
         <Welcome>
