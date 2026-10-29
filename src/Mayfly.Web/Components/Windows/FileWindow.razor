@@ -37,6 +37,23 @@
         <dd><LocalTime Value="File.UploadedAt!.Value" /></dd>
     </dl>
 
+    @if (Folders.Count > 0)
+    {
+        <form class="move" data-move-file="@File.Id">
+            <label>
+                Folder
+                <select name="FolderId">
+                    <option value="" selected="@(File.FolderId is null)">Desktop</option>
+                    @foreach (var folder in Folders)
+                    {
+                        <option value="@folder.Id" selected="@(File.FolderId == folder.Id)">@folder.Name</option>
+                    }
+                </select>
+            </label>
+            <button type="submit" class="button-quiet">Move</button>
+        </form>
+    }
+
     <div class="actions">
         <a class="button" href="files/@File.Id/download" data-enhance-nav="false">Download</a>
         <form method="post" @formname="delete-file" @onsubmit="DeleteAsync" data-confirm="Delete this file with all its links?">
@@ -57,6 +74,9 @@
 
     [Parameter, EditorRequired]
     public string CloseHref { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public IReadOnlyList<Folder> Folders { get; set; } = default!;
 
     private async Task DeleteAsync()
     {

@@ -84,7 +84,7 @@
 }
 else
 {
-    <FileWindow File="openFile" Now="now" CloseHref="@ViewHref" />
+    <FileWindow File="openFile" Now="now" CloseHref="@ViewHref" Folders="allFolders" />
 }
 
 <svg class="visually-hidden" aria-hidden="true">
@@ -101,7 +101,7 @@ else
 @if (folder is not null)
 {
     <nav class="path" aria-label="Location">
-        <a href="desktop">Desktop</a>
+        <a href="desktop" data-folder-target="">Desktop</a>
         <span aria-current="page">@folder.Name</span>
     </nav>
 }
@@ -110,7 +110,7 @@ else
     @foreach (var (id, name, count) in folders)
     {
         <li class="item folder">
-            <a href="desktop/folders/@id">
+            <a href="desktop/folders/@id" data-folder-target="@id">
                 <span class="glyph">
                     <svg aria-hidden="true"><use href="#folder-glyph" /></svg>
                 </span>
@@ -131,7 +131,8 @@ else
         <li class="item @(soon ? "soon" : null)"
             data-expires="@file.ExpiresAt?.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")">
             <a href="@ViewHref/files/@file.Id" aria-describedby="card-@file.Id"
-               aria-current="@(file.Id == FileId ? "true" : null)" data-download="files/@file.Id/download">
+               aria-current="@(file.Id == FileId ? "true" : null)" data-download="files/@file.Id/download"
+               data-file-id="@file.Id">
                 <span class="glyph">
                     <svg aria-hidden="true"><use href="#file-glyph" /></svg>
                     @if (extension is { Length: > 0 and <= 4 })
@@ -204,6 +205,8 @@ else
     [SupplyParameterFromForm(FormName = "create-folder")]
     private FolderInputModel FolderInput { get; set; } = default!;
 
+    private List<Folder> allFolders = [];
+
     private List<(Guid Id, string Name, int Count)> folders = [];
 
     private List<(FileItem File, string Link)> files = [];
@@ -229,12 +232,15 @@ else
             ?? throw new InvalidOperationException("Signed-in user has no id claim.");
 
         await using var db = await DbFactory.CreateDbContextAsync();
+        allFolders = await db.Folders
+            .AsNoTracking()
+            .Where(f => f.OwnerId == ownerId)
+            .OrderBy(f => f.Name)
+            .ToListAsync();
 
         if (FolderId is { } folderId)
         {
-            folder = await db.Folders
-                .AsNoTracking()
-                .SingleOrDefaultAsync(f => f.Id == folderId && f.OwnerId == ownerId);
+            folder = allFolders.SingleOrDefault(f => f.Id == folderId);
             if (folder is null)
             {
                 Navigation.NotFound();
@@ -250,11 +256,7 @@ else
                 .Select(group => new { FolderId = group.Key, Count = group.Count() })
                 .ToDictionaryAsync(item => item.FolderId, item => item.Count);
 
-            folders = (await db.Folders
-                    .AsNoTracking()
-                    .Where(f => f.OwnerId == ownerId)
-                    .OrderBy(f => f.Name)
-                    .ToListAsync())
+            folders = allFolders
                 .Select(f => (f.Id, f.Name, counts.GetValueOrDefault(f.Id)))
                 .ToList();
         }

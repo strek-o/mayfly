@@ -87,6 +87,23 @@ dd {
   overflow-wrap: anywhere;
 }
 
+.move {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.move label {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.move button {
+  min-height: 2.5rem;
+}
+
 .actions {
   display: flex;
   gap: 0.5rem;

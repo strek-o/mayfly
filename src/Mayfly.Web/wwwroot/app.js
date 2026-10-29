@@ -40,6 +40,83 @@ document.addEventListener("dblclick", (event) => {
   }
 });
 
+const fileDragType = "application/x-mayfly-file";
+
+document.addEventListener("dragstart", (event) => {
+  const link = event.target.closest?.("a[data-file-id]");
+  if (link) {
+    event.dataTransfer.setData(fileDragType, link.dataset.fileId);
+    event.dataTransfer.effectAllowed = "move";
+  }
+});
+
+function folderTarget(event) {
+  return event.dataTransfer?.types.includes(fileDragType)
+    ? event.target.closest?.("[data-folder-target]")
+    : null;
+}
+
+document.addEventListener("dragover", (event) => {
+  const target = folderTarget(event);
+  if (target) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    target.classList.add("drop-target");
+  }
+});
+
+document.addEventListener("dragleave", (event) => {
+  folderTarget(event)?.classList.remove("drop-target");
+});
+
+document.addEventListener("drop", async (event) => {
+  const target = folderTarget(event);
+  if (!target) {
+    return;
+  }
+
+  event.preventDefault();
+  target.classList.remove("drop-target");
+  try {
+    await moveFile(
+      event.dataTransfer.getData(fileDragType),
+      target.dataset.folderTarget,
+    );
+  } finally {
+    location.reload();
+  }
+});
+
+document.addEventListener("submit", async (event) => {
+  const form = event.target;
+  if (!(form instanceof HTMLFormElement) || !form.dataset.moveFile) {
+    return;
+  }
+
+  event.preventDefault();
+  const fileId = form.dataset.moveFile;
+  const folderId = form.elements.FolderId.value;
+  try {
+    await moveFile(fileId, folderId);
+    location.href = folderId
+      ? `desktop/folders/${folderId}/files/${fileId}`
+      : `desktop/files/${fileId}`;
+  } catch {
+    location.reload();
+  }
+});
+
+async function moveFile(fileId, folderId) {
+  const antiforgery = document.querySelector(
+    'input[name="__RequestVerificationToken"]',
+  ).value;
+  await postForm(
+    `files/${fileId}/move`,
+    antiforgery,
+    folderId ? { FolderId: folderId } : {},
+  );
+}
+
 document.addEventListener("keydown", (event) => {
   if (
     event.key !== "Escape" ||

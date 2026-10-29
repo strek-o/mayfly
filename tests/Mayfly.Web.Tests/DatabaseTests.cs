@@ -224,6 +224,48 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     }
 
     [Fact]
+    public async Task MoveFile_IntoOwnFolderAndBackToTheDesktop()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var folderId = await SeedFolderAsync(ownerId);
+        var (file, _) = await SeedFileAsync(ownerId, DateTimeOffset.UtcNow, uploaded: true);
+        var antiforgery = await GetAntiforgeryTokenAsync(owner, "/desktop");
+
+        var intoFolder = await owner.PostAsync($"/files/{file.Id}/move", Form(antiforgery, ("FolderId", folderId.ToString())), Ct);
+        Assert.Equal(HttpStatusCode.NoContent, intoFolder.StatusCode);
+        Assert.Equal(folderId, await GetFolderIdAsync(file.Id));
+
+        var backToDesktop = await owner.PostAsync($"/files/{file.Id}/move", Form(antiforgery), Ct);
+        Assert.Equal(HttpStatusCode.NoContent, backToDesktop.StatusCode);
+        Assert.Null(await GetFolderIdAsync(file.Id));
+    }
+
+    [Fact]
+    public async Task MoveFile_RejectsAnotherUsersFolderOrFile()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var (_, otherId) = await RegisterAsync();
+        var foreignFolder = await SeedFolderAsync(otherId);
+        var (ownFile, _) = await SeedFileAsync(ownerId, DateTimeOffset.UtcNow, uploaded: true);
+        var (foreignFile, _) = await SeedFileAsync(otherId, DateTimeOffset.UtcNow, uploaded: true);
+        var ownFolder = await SeedFolderAsync(ownerId);
+        var antiforgery = await GetAntiforgeryTokenAsync(owner, "/desktop");
+
+        var toForeignFolder = await owner.PostAsync($"/files/{ownFile.Id}/move", Form(antiforgery, ("FolderId", foreignFolder.ToString())), Ct);
+        var foreignFileMoved = await owner.PostAsync($"/files/{foreignFile.Id}/move", Form(antiforgery, ("FolderId", ownFolder.ToString())), Ct);
+        var withoutAntiforgery = await owner.PostAsync(
+            $"/files/{ownFile.Id}/move",
+            new FormUrlEncodedContent([new("FolderId", ownFolder.ToString())]),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, toForeignFolder.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, foreignFileMoved.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, withoutAntiforgery.StatusCode);
+        Assert.Null(await GetFolderIdAsync(ownFile.Id));
+        Assert.Null(await GetFolderIdAsync(foreignFile.Id));
+    }
+
+    [Fact]
     public async Task FileWindow_ForAnotherUsersFile_ReturnsNotFound()
     {
         var (_, ownerId) = await RegisterAsync();
@@ -409,6 +451,12 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         var blob = container.GetBlobClient(file.BlobName);
         await blob.UploadAsync(BinaryData.FromString("hello"), Ct);
         return (file, blob);
+    }
+
+    private async Task<Guid?> GetFolderIdAsync(Guid fileId)
+    {
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        return await db.Files.Where(f => f.Id == fileId).Select(f => f.FolderId).SingleAsync(Ct);
     }
 
     private async Task<Guid> SeedFolderAsync(string ownerId)
