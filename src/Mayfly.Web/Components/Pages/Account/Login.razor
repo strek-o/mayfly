@@ -1,80 +1,8 @@
 @page "/account/login"
-@using System.ComponentModel.DataAnnotations
-@using Mayfly.Core.Data
-@using Microsoft.AspNetCore.Identity
-@inject SignInManager<ApplicationUser> SignInManager
-@inject NavigationManager Navigation
+@layout BareLayout
 
 <PageTitle>Sign in</PageTitle>
 
-<h1>Sign in</h1>
-
-<EditForm Model="Input" FormName="login" OnValidSubmit="LoginAsync" method="post">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
-
-    @if (error is not null)
-    {
-        <p>@error</p>
-    }
-
-    <label>
-        Email
-        <InputText @bind-Value="Input.Email" type="email" autocomplete="username" />
-    </label>
-
-    <label>
-        Password
-        <InputText @bind-Value="Input.Password" type="password" autocomplete="current-password" />
-    </label>
-
-    <label>
-        <InputCheckbox @bind-Value="Input.RememberMe" />
-        Remember me
-    </label>
-
-    <button type="submit">Sign in</button>
-</EditForm>
-
-@code {
-    [SupplyParameterFromForm]
-    private InputModel Input { get; set; } = default!;
-
-    [SupplyParameterFromQuery]
-    private string? ReturnUrl { get; set; }
-
-    private string? error;
-
-    protected override void OnInitialized() => Input ??= new();
-
-    private async Task LoginAsync()
-    {
-        var result = await SignInManager.PasswordSignInAsync(
-            Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
-
-        if (result.Succeeded)
-        {
-            Navigation.NavigateTo(IsLocalUrl(ReturnUrl) ? ReturnUrl! : "/");
-            return;
-        }
-
-        error = result.IsLockedOut
-            ? "Account locked after too many failed attempts. Try again later."
-            : "Invalid email or password.";
-    }
-
-    private static bool IsLocalUrl(string? url) =>
-        url is not null && url.StartsWith('/') && !url.StartsWith("//") && !url.StartsWith("/\\");
-
-    private sealed class InputModel
-    {
-        [Required]
-        [EmailAddress]
-        public string Email { get; set; } = "";
-
-        [Required]
-        public string Password { get; set; } = "";
-
-        public bool RememberMe { get; set; }
-    }
-}
+<Welcome>
+    <LoginForm />
+</Welcome>

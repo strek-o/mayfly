@@ -39,17 +39,17 @@ public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<
         var response = await client.GetAsync("/", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("<h1>Mayfly</h1>", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Contains("Files and notes that know when to leave", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
-    public async Task HomePage_ForAnonymousVisitor_ShowsNotSignedIn()
+    public async Task HomePage_ForAnonymousVisitor_ShowsSignInForm()
     {
         var client = factory.CreateClient();
 
         var response = await client.GetAsync("/", TestContext.Current.CancellationToken);
 
-        Assert.Contains("Not signed in", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Contains("<input type=\"hidden\" name=\"_handler\" value=\"login\" />", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<
         var response = await client.GetAsync("/account/register", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("<h1>Register</h1>", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Contains("<h2>Create an account</h2>", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<
         var response = await client.GetAsync("/account/login", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("<h1>Sign in</h1>", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Contains("<h2>Sign in</h2>", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]

@@ -1,0 +1,44 @@
+@using Mayfly.Web.Files
+
+<div class="welcome">
+    <a class="brand" href="">Mayfly</a>
+
+    <header class="hero">
+        <h1>Files and notes that know when to leave</h1>
+        <p>A private drive and pastebin. Everything you add gets a lifetime.</p>
+    </header>
+
+    <section class="panel">
+        @ChildContent
+    </section>
+
+    <ul class="facts">
+        <li>
+            <span class="stamp stamp-soon">12 min left</span>
+            <p>Every file and paste gets a lifetime: an hour, a day, a week or a date you pick.</p>
+        </li>
+        <li>
+            <span class="stamp">1 view left</span>
+            <p>Share with a link that can expire, burn after a set number of views or ask for a password.</p>
+        </li>
+        <li>
+            <span class="stamp">Up to @FileSize.Format(FileUploadEndpoints.MaxFileSize)</span>
+            <p>Files go straight to private storage and download through short-lived links.</p>
+        </li>
+    </ul>
+
+    <footer>
+        <a href="https://github.com/strek-o/mayfly">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            </svg>
+            Source on GitHub
+        </a>
+        <span>Runs on Azure Container Apps</span>
+    </footer>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public RenderFragment ChildContent { get; set; } = default!;
+}

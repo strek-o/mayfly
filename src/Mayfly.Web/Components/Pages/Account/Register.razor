@@ -1,4 +1,5 @@
 @page "/account/register"
+@layout BareLayout
 @using System.ComponentModel.DataAnnotations
 @using Mayfly.Core.Data
 @using Microsoft.AspNetCore.Identity
@@ -6,36 +7,40 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject NavigationManager Navigation
 
-<PageTitle>Register</PageTitle>
+<PageTitle>Create an account</PageTitle>
 
-<h1>Register</h1>
+<Welcome>
+    <EditForm Model="Input" FormName="register" OnValidSubmit="RegisterAsync" method="post">
+        <h2>Create an account</h2>
 
-<EditForm Model="Input" FormName="register" OnValidSubmit="RegisterAsync" method="post">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
+        <DataAnnotationsValidator />
+        <ValidationSummary />
 
-    @foreach (var error in errors)
-    {
-        <p>@error</p>
-    }
+        @foreach (var error in errors)
+        {
+            <p class="form-error" role="alert">@error</p>
+        }
 
-    <label>
-        Email
-        <InputText @bind-Value="Input.Email" type="email" autocomplete="username" />
-    </label>
+        <label>
+            Email
+            <InputText @bind-Value="Input.Email" type="email" autocomplete="username" />
+        </label>
 
-    <label>
-        Password
-        <InputText @bind-Value="Input.Password" type="password" autocomplete="new-password" />
-    </label>
+        <label>
+            Password
+            <InputText @bind-Value="Input.Password" type="password" autocomplete="new-password" />
+        </label>
 
-    <label>
-        Confirm password
-        <InputText @bind-Value="Input.ConfirmPassword" type="password" autocomplete="new-password" />
-    </label>
+        <label>
+            Confirm password
+            <InputText @bind-Value="Input.ConfirmPassword" type="password" autocomplete="new-password" />
+        </label>
 
-    <button type="submit">Register</button>
-</EditForm>
+        <button type="submit">Create account</button>
+
+        <p class="alternate">Already have an account? <a href="account/login">Sign in</a></p>
+    </EditForm>
+</Welcome>
 
 @code {
     [SupplyParameterFromForm]

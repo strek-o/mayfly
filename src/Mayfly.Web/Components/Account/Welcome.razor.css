@@ -1,0 +1,145 @@
+.welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 1.5rem 2rem 1.25rem;
+}
+
+.brand {
+  align-self: flex-start;
+  color: var(--ink);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.hero {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(1.875rem, 4vw, 2.75rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.hero p {
+  margin: 0.75rem 0 0;
+  color: var(--mute);
+  font-size: 1.0625rem;
+}
+
+.panel {
+  width: min(25rem, 100%);
+  margin-top: 3rem;
+  padding: 1.75rem;
+}
+
+.panel ::deep h2 {
+  margin-bottom: 1.125rem;
+}
+
+.panel ::deep button[type="submit"] {
+  width: 100%;
+  min-height: 2.625rem;
+  margin-top: 0.25rem;
+  font-size: 0.9375rem;
+}
+
+.panel ::deep .alternate {
+  margin: 1rem 0 0;
+  color: var(--mute);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.panel ::deep .alternate a {
+  font-weight: 600;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.75rem;
+  width: min(65rem, 100%);
+  margin: 3rem 0 2.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.facts li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.625rem;
+}
+
+.facts .stamp {
+  background: var(--paper);
+}
+
+.facts p {
+  margin: 0;
+  color: var(--mute);
+  font-size: 0.875rem;
+}
+
+footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.25rem;
+  width: 100%;
+  margin-top: auto;
+  color: var(--mute);
+  font-size: 0.8125rem;
+}
+
+footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+footer a:hover {
+  text-decoration: underline;
+}
+
+footer svg {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@media (max-width: 760px) {
+  .welcome {
+    padding: 1.25rem 1rem;
+  }
+
+  .panel {
+    margin-top: 2rem;
+    padding: 1.25rem;
+  }
+
+  .facts {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    margin-top: 2rem;
+  }
+
+  footer {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}

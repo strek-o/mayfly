@@ -1,7 +1,17 @@
 @page "/"
+@layout BareLayout
 
 <PageTitle>Mayfly</PageTitle>
 
-<h1>Mayfly</h1>
+<AuthorizeView>
+    <Authorized>
+        <h1>Mayfly</h1>
 
-<p>Hello from Azure Container Apps.</p>
+        <p>Hello from Azure Container Apps.</p>
+    </Authorized>
+    <NotAuthorized>
+        <Welcome>
+            <LoginForm />
+        </Welcome>
+    </NotAuthorized>
+</AuthorizeView>
