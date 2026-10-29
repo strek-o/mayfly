@@ -33,6 +33,29 @@ document.addEventListener("click", (event) => {
   }
 });
 
+document.addEventListener("dblclick", (event) => {
+  const link = event.target.closest("a[data-download]");
+  if (link) {
+    location.href = link.dataset.download;
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (
+    event.key !== "Escape" ||
+    event.target.closest("input, select, textarea")
+  ) {
+    return;
+  }
+
+  const menu = document.querySelector("details[data-menu][open]");
+  if (menu) {
+    menu.open = false;
+  } else {
+    document.querySelector("[data-window-close]")?.click();
+  }
+});
+
 document.addEventListener("submit", (event) => {
   const message = event.target.dataset?.confirm;
   if (message && !confirm(message)) {

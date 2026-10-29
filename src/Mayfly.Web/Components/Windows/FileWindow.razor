@@ -1,0 +1,65 @@
+@using Mayfly.Core.Data
+@using Mayfly.Core.Files
+@using Mayfly.Web.Files
+@using Mayfly.Web.Time
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<MayflyDbContext> DbFactory
+@inject FileStorage Storage
+@inject NavigationManager Navigation
+
+<section class="window panel" aria-labelledby="window-title"
+         data-expires="@File.ExpiresAt?.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")">
+    <header>
+        <h1 id="window-title">@File.FileName</h1>
+        <a class="close" href="desktop" aria-label="Close" data-window-close>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+        </a>
+    </header>
+
+    <div class="when">
+        @if (File.ExpiresAt is { } expiresAt)
+        {
+            <span class="stamp @(TimeLeft.IsSoon(expiresAt, Now) ? "stamp-soon" : null)" data-time-left-stamp>@TimeLeft.Format(expiresAt, Now) left</span>
+            <small>gone <LocalTime Value="expiresAt" /></small>
+        }
+        else
+        {
+            <span class="stamp">No expiry</span>
+        }
+    </div>
+
+    <dl>
+        <dt>Size</dt>
+        <dd>@FileSize.Format(File.Size)</dd>
+        <dt>Type</dt>
+        <dd>@File.ContentType</dd>
+        <dt>Uploaded</dt>
+        <dd><LocalTime Value="File.UploadedAt!.Value" /></dd>
+    </dl>
+
+    <div class="actions">
+        <a class="button" href="files/@File.Id/download" data-enhance-nav="false">Download</a>
+        <form method="post" @formname="delete-file" @onsubmit="DeleteAsync" data-confirm="Delete this file with all its links?">
+            <AntiforgeryToken />
+            <button type="submit" class="button-danger">Delete</button>
+        </form>
+    </div>
+
+    <ShareLinksPanel FileId="File.Id" />
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public FileItem File { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public DateTimeOffset Now { get; set; }
+
+    private async Task DeleteAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.Files.Where(f => f.Id == File.Id && f.OwnerId == File.OwnerId).DeleteWithBlobsAsync(db, Storage);
+
+        Navigation.NavigateTo("desktop");
+    }
+}

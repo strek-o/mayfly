@@ -153,11 +153,23 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     }
 
     [Fact]
+    public async Task FileWindow_ForAnotherUsersFile_ReturnsNotFound()
+    {
+        var (_, ownerId) = await RegisterAsync();
+        var (other, _) = await RegisterAsync();
+        var (file, _) = await SeedFileAsync(ownerId, DateTimeOffset.UtcNow, uploaded: true);
+
+        var response = await other.GetAsync($"/desktop/files/{file.Id}", Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task ShareLinksPanel_CreatesAndRevokesFileLink()
     {
         var (owner, ownerId) = await RegisterAsync();
         var (file, _) = await SeedFileAsync(ownerId, DateTimeOffset.UtcNow, uploaded: true);
-        var url = $"/files/{file.Id}";
+        var url = $"/desktop/files/{file.Id}";
 
         var created = await owner.PostAsync(
             url,
@@ -196,8 +208,8 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         var (file, blob) = await SeedFileAsync(ownerId, DateTimeOffset.UtcNow, uploaded: true);
 
         var response = await owner.PostAsync(
-            $"/files/{file.Id}",
-            Form(await GetAntiforgeryTokenAsync(owner, $"/files/{file.Id}"), ("_handler", "delete-file")),
+            $"/desktop/files/{file.Id}",
+            Form(await GetAntiforgeryTokenAsync(owner, $"/desktop/files/{file.Id}"), ("_handler", "delete-file")),
             Ct);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);

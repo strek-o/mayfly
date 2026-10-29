@@ -1,4 +1,5 @@
 @page "/desktop"
+@page "/desktop/files/{FileId:guid}"
 @attribute [Authorize]
 @layout AppLayout
 @using Mayfly.Core.Data
@@ -11,8 +12,9 @@
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<MayflyDbContext> DbFactory
 @inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Navigation
 
-<PageTitle>Desktop</PageTitle>
+<PageTitle>@(openFile?.FileName ?? "Desktop")</PageTitle>
 
 <SectionContent SectionName="menubar-actions">
     <details class="upload" data-menu>
@@ -52,7 +54,14 @@
     </details>
 </SectionContent>
 
-<h1 class="visually-hidden">Desktop</h1>
+@if (openFile is null)
+{
+    <h1 class="visually-hidden">Desktop</h1>
+}
+else
+{
+    <FileWindow File="openFile" Now="now" />
+}
 
 <svg class="visually-hidden" aria-hidden="true">
     <symbol id="file-glyph" viewBox="0 0 46 56">
@@ -70,7 +79,8 @@
 
         <li class="item @(soon ? "soon" : null)"
             data-expires="@file.ExpiresAt?.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")">
-            <a href="files/@file.Id" aria-describedby="card-@file.Id">
+            <a href="desktop/files/@file.Id" aria-describedby="card-@file.Id"
+               aria-current="@(file.Id == FileId ? "true" : null)" data-download="files/@file.Id/download">
                 <span class="glyph">
                     <svg aria-hidden="true"><use href="#file-glyph" /></svg>
                     @if (extension is { Length: > 0 and <= 4 })
@@ -112,7 +122,7 @@
                     <dd>@link</dd>
                 </dl>
 
-                <footer>Click for details and sharing</footer>
+                <footer>Click to open · double-click to download</footer>
             </div>
         </li>
     }
@@ -127,10 +137,15 @@
 </div>
 
 @code {
+    [Parameter]
+    public Guid? FileId { get; set; }
+
     [CascadingParameter]
     private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
 
     private List<(FileItem File, string Link)> files = [];
+
+    private FileItem? openFile;
 
     private readonly DateTimeOffset now = DateTimeOffset.UtcNow;
 
@@ -160,6 +175,15 @@
         files = items
             .Select(file => (file, DescribeLinks(links.Where(link => link.FileId == file.Id).ToList())))
             .ToList();
+
+        if (FileId is { } fileId)
+        {
+            openFile = items.SingleOrDefault(file => file.Id == fileId);
+            if (openFile is null)
+            {
+                Navigation.NotFound();
+            }
+        }
     }
 
     private static string DescribeLinks(List<ShareLink> links) => links switch
