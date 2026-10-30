@@ -144,33 +144,30 @@
                 <ValidationSummary />
 
                 <div class="tools" role="toolbar" aria-label="Formatting">
-                    <button type="button" data-format="bold" title="Bold (Ctrl+B)">
+                    <button type="button" data-command="bold" aria-pressed="false" title="Bold (Ctrl+B)">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8" /></svg>
                     </button>
-                    <button type="button" data-format="italic" title="Italic (Ctrl+I)">
+                    <button type="button" data-command="italic" aria-pressed="false" title="Italic (Ctrl+I)">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-9M14 20H5M15 4 9 20" /></svg>
                     </button>
-                    <button type="button" data-format="underline" title="Underline (Ctrl+U)">
+                    <button type="button" data-command="underline" aria-pressed="false" title="Underline (Ctrl+U)">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4v6a6 6 0 0 0 12 0V4M4 20h16" /></svg>
                     </button>
-                    <button type="button" data-format="strike" title="Strikethrough">
+                    <button type="button" data-command="strikeThrough" aria-pressed="false" title="Strikethrough">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4H9a3 3 0 0 0-2.83 4M14 12a4 4 0 0 1 0 8H6M4 12h16" /></svg>
                     </button>
                     <hr />
-                    <button type="button" data-format="code" title="Code">
+                    <button type="button" data-command="code" aria-pressed="false" title="Code">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6" /></svg>
                     </button>
-                    <button type="button" data-format="link" title="Link">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></svg>
-                    </button>
-                    <button type="button" data-format="list" title="List">
+                    <button type="button" data-command="insertUnorderedList" aria-pressed="false" title="List">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>
                     </button>
                 </div>
 
-                <label class="visually-hidden" for="entry-content">New entry</label>
-                <InputTextArea @bind-Value="EntryInput.Content" id="entry-content" rows="4"
-                               placeholder="Write an entry… Markdown works." />
+                <div class="editor markdown" contenteditable="true" role="textbox" aria-multiline="true"
+                     aria-label="New entry" data-editor data-placeholder="Write an entry…"></div>
+                <InputTextArea @bind-Value="EntryInput.Content" hidden />
 
                 <div class="send">
                     <span>Ctrl+Enter to add</span>

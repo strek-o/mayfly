@@ -44,6 +44,7 @@ public class EntryMarkdownTests
     [InlineData("[click](data:text/html;base64,PHNjcmlwdD4=)")]
     [InlineData("<javascript:alert(1)>")]
     [InlineData("[click](vbscript:msgbox(1))")]
+    [InlineData("ftp://example.com/file")]
     public void ToHtml_NeutralizesUnsafeLinks(string content)
     {
         var hrefs = Regex.Matches(EntryMarkdown.ToHtml(content).Value, "href=\"([^\"]*)\"")
@@ -58,6 +59,8 @@ public class EntryMarkdownTests
     [InlineData("[docs](https://learn.microsoft.com/azure)", "https://learn.microsoft.com/azure")]
     [InlineData("<https://example.com/a>", "https://example.com/a")]
     [InlineData("[mail](mailto:owner@example.test)", "mailto:owner@example.test")]
+    [InlineData("see https://example.com/b for details", "https://example.com/b")]
+    [InlineData("www.example.com", "http://www.example.com")]
     public void ToHtml_KeepsSafeLinksWithoutReferrer(string content, string url)
     {
         var html = EntryMarkdown.ToHtml(content).Value;

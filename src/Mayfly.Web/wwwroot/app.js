@@ -120,7 +120,7 @@ async function moveFile(fileId, folderId) {
 document.addEventListener("keydown", (event) => {
   if (
     event.key !== "Escape" ||
-    event.target.closest("input, select, textarea")
+    event.target.closest("input, select, textarea, [contenteditable]")
   ) {
     return;
   }
@@ -133,76 +133,169 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-const inlineMarks = {
-  bold: "**",
-  italic: "_",
-  underline: "++",
-  strike: "~~",
-  code: "`",
+const markdownMarks = {
+  B: "**",
+  STRONG: "**",
+  I: "*",
+  EM: "*",
+  U: "++",
+  S: "~~",
+  STRIKE: "~~",
+  DEL: "~~",
 };
-const formatKeys = { b: "bold", i: "italic", u: "underline" };
+const editorShortcuts = { b: "bold", i: "italic", u: "underline" };
 
-function markdownFor(format, selected) {
-  if (format === "link") {
-    return [`[${selected || "text"}](`, "https://", ")"];
+function editorMarkdown(node) {
+  let text = "";
+  for (const child of node.childNodes) {
+    text +=
+      child.nodeType === Node.TEXT_NODE
+        ? child.data.replaceAll(" ", " ")
+        : elementMarkdown(child);
   }
 
-  if (format === "list") {
-    return [selected.replace(/^/gm, "- "), "", ""];
-  }
-
-  if (format === "code" && selected.includes("\n")) {
-    return ["```\n", selected, "\n```"];
-  }
-
-  return [inlineMarks[format], selected, inlineMarks[format]];
+  return text;
 }
 
-function formatSelection(textarea, format) {
-  const { value, selectionEnd: end } = textarea;
-  const start =
-    format === "list"
-      ? value.slice(0, textarea.selectionStart).lastIndexOf("\n") + 1
-      : textarea.selectionStart;
-  const [before, inner, after] = markdownFor(format, value.slice(start, end));
-
-  textarea.focus();
-  textarea.setSelectionRange(start, end);
-  if (!document.execCommand("insertText", false, before + inner + after)) {
-    textarea.setRangeText(before + inner + after);
+function elementMarkdown(element) {
+  const name = element.nodeName;
+  if (name === "BR") {
+    return "\n";
   }
 
-  const innerStart = start + before.length;
-  textarea.setSelectionRange(innerStart, innerStart + inner.length);
+  if (name === "CODE") {
+    return `\`${element.textContent}\``;
+  }
+
+  const inner = editorMarkdown(element);
+  if (name === "DIV" || name === "P") {
+    return `\n${inner.replace(/\n$/, "")}`;
+  }
+
+  if (name === "LI") {
+    return `\n- ${inner.replace(/\n$/, "")}`;
+  }
+
+  if (name === "UL" || name === "OL") {
+    return `\n${inner}\n`;
+  }
+
+  const mark = markdownMarks[name];
+  const [, before, core, after] = inner.match(/^(\s*)([\s\S]*?)(\s*)$/);
+  return mark && core ? before + mark + core + mark + after : inner;
 }
+
+function codeAtSelection(editor) {
+  const node = getSelection().anchorNode;
+  const element = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+  const code = element?.closest?.("code");
+  return code && editor.contains(code) ? code : null;
+}
+
+function runEditorCommand(editor, command) {
+  editor.focus();
+  const code = command === "code" && codeAtSelection(editor);
+  if (code) {
+    code.replaceWith(code.textContent);
+  } else if (command === "code") {
+    const selected = getSelection().toString();
+    if (selected) {
+      const element = document.createElement("code");
+      element.textContent = selected;
+      document.execCommand("insertHTML", false, element.outerHTML);
+    }
+  } else {
+    document.execCommand(command);
+  }
+
+  updateEditorTools(editor);
+}
+
+function updateEditorTools(editor) {
+  for (const button of editor
+    .closest("form")
+    .querySelectorAll("button[data-command]")) {
+    const { command } = button.dataset;
+    const pressed =
+      command === "code"
+        ? Boolean(codeAtSelection(editor))
+        : document.queryCommandState(command);
+    button.setAttribute("aria-pressed", String(pressed));
+  }
+}
+
+document.addEventListener("mousedown", (event) => {
+  if (event.target.closest?.("button[data-command]")) {
+    event.preventDefault();
+  }
+});
 
 document.addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-format]");
-  const textarea = button?.form?.querySelector("textarea");
-  if (textarea) {
-    formatSelection(textarea, button.dataset.format);
+  const button = event.target.closest("button[data-command]");
+  const editor = button?.form?.querySelector("[data-editor]");
+  if (editor) {
+    runEditorCommand(editor, button.dataset.command);
   }
 });
 
 document.addEventListener("keydown", (event) => {
-  const textarea = event.target;
-  if (
-    !(event.ctrlKey || event.metaKey) ||
-    !(textarea instanceof HTMLTextAreaElement) ||
-    !textarea.form?.querySelector("[data-format]")
-  ) {
+  const editor = event.target.closest?.("[data-editor]");
+  if (!editor || !(event.ctrlKey || event.metaKey)) {
     return;
   }
 
-  const format = formatKeys[event.key.toLowerCase()];
+  const command = editorShortcuts[event.key.toLowerCase()];
   if (event.key === "Enter") {
     event.preventDefault();
-    textarea.form.requestSubmit();
-  } else if (format) {
+    editor.closest("form").requestSubmit();
+  } else if (command) {
     event.preventDefault();
-    formatSelection(textarea, format);
+    runEditorCommand(editor, command);
   }
 });
+
+document.addEventListener("selectionchange", () => {
+  const editor = document.activeElement?.closest?.("[data-editor]");
+  if (editor) {
+    updateEditorTools(editor);
+  }
+});
+
+document.addEventListener("paste", (event) => {
+  if (event.target.closest?.("[data-editor]")) {
+    event.preventDefault();
+    document.execCommand(
+      "insertText",
+      false,
+      event.clipboardData.getData("text/plain"),
+    );
+  }
+});
+
+document.addEventListener("input", (event) => {
+  const editor = event.target.closest?.("[data-editor]");
+  if (editor && !editor.textContent && !editor.querySelector("li")) {
+    editor.replaceChildren();
+  }
+});
+
+document.addEventListener("submit", (event) => {
+  const editor = event.target.querySelector?.("[data-editor]");
+  if (editor) {
+    event.target.querySelector("textarea").value = editorMarkdown(
+      editor,
+    ).replace(/^\n+|\s+$/g, "");
+  }
+});
+
+function restoreEditors() {
+  for (const editor of document.querySelectorAll("[data-editor]")) {
+    const source = editor.closest("form").querySelector("textarea");
+    if (source.value && !editor.textContent) {
+      editor.innerText = source.value;
+    }
+  }
+}
 
 document.addEventListener("submit", (event) => {
   const message = event.target.dataset?.confirm;
@@ -373,6 +466,8 @@ function applyLocalTime() {
 
 document.addEventListener("DOMContentLoaded", applyLocalTime);
 Blazor.addEventListener("enhancedload", applyLocalTime);
+document.addEventListener("DOMContentLoaded", restoreEditors);
+Blazor.addEventListener("enhancedload", restoreEditors);
 
 const minute = 60_000;
 const hour = 60 * minute;

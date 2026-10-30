@@ -294,16 +294,25 @@
   margin: 0.75rem 1.25rem 1.25rem;
 }
 
-.paste ::deep .composer textarea {
-  min-height: 7.5rem;
+.editor {
+  min-height: 11rem;
+  max-height: 55vh;
   margin-bottom: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  overflow-y: auto;
   border: 2px solid var(--field);
   border-radius: 10px;
+  cursor: text;
 }
 
-.paste ::deep .composer textarea:focus-visible {
+.editor:focus {
   border-color: var(--accent);
   outline: none;
+}
+
+.editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--mute);
 }
 
 .tools {
@@ -329,7 +338,8 @@
   color: var(--ink);
 }
 
-.tools button:hover {
+.tools button:hover,
+.tools button[aria-pressed="true"] {
   background: var(--soft);
   color: var(--accent);
 }

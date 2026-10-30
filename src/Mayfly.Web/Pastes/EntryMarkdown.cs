@@ -13,6 +13,7 @@ public static class EntryMarkdown
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder()
         .DisableHtml()
         .UseEmphasisExtras(EmphasisExtraOptions.Strikethrough | EmphasisExtraOptions.Inserted)
+        .UseAutoLinks()
         .UseSoftlineBreakAsHardlineBreak()
         .UseReferralLinks("nofollow", "noopener", "noreferrer")
         .Build();
