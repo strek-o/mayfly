@@ -39,7 +39,7 @@
                     <option value="" selected="@(File.FolderId is null)">Desktop</option>
                     @foreach (var folder in Folders)
                     {
-                        <option value="@folder.Id" selected="@(File.FolderId == folder.Id)">@folder.Name</option>
+                        <option value="@folder.Id" selected="@(File.FolderId == folder.Id)">@folder.Path</option>
                     }
                 </select>
             </label>
@@ -69,7 +69,7 @@
     public string CloseHref { get; set; } = default!;
 
     [Parameter, EditorRequired]
-    public IReadOnlyList<Folder> Folders { get; set; } = default!;
+    public IReadOnlyList<(Guid Id, string Path)> Folders { get; set; } = default!;
 
     private async Task DeleteAsync()
     {

@@ -78,6 +78,7 @@ public class MayflyDbContext(DbContextOptions<MayflyDbContext> options)
         {
             folder.Property(f => f.Name).HasMaxLength(100);
             folder.HasOne<ApplicationUser>().WithMany().HasForeignKey(f => f.OwnerId);
+            folder.HasOne<Folder>().WithMany().HasForeignKey(f => f.ParentId).OnDelete(DeleteBehavior.NoAction);
         });
     }
 }

@@ -6,6 +6,8 @@ public class Folder
 
     public required string OwnerId { get; set; }
 
+    public Guid? ParentId { get; set; }
+
     public required string Name { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }

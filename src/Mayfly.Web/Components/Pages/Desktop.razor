@@ -22,25 +22,22 @@
 <PageTitle>@(openFile?.FileName ?? folder?.Name ?? "Desktop")</PageTitle>
 
 <SectionContent SectionName="menubar-actions">
-    @if (FolderId is null)
-    {
-        <details class="new-folder" data-menu open="@showFolderForm">
-            <summary class="button button-quiet">New folder</summary>
+    <details class="new-folder" data-menu open="@showFolderForm">
+        <summary class="button button-quiet">New folder</summary>
 
-            <EditForm Model="FolderInput" FormName="create-folder" OnValidSubmit="CreateFolderAsync"
-                      OnInvalidSubmit="() => showFolderForm = true" method="post">
-                <DataAnnotationsValidator />
-                <ValidationSummary />
+        <EditForm Model="FolderInput" FormName="create-folder" OnValidSubmit="CreateFolderAsync"
+                  OnInvalidSubmit="() => showFolderForm = true" method="post">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
 
-                <label>
-                    Name
-                    <InputText @bind-Value="FolderInput.Name" autocomplete="off" />
-                </label>
+            <label>
+                Name
+                <InputText @bind-Value="FolderInput.Name" autocomplete="off" />
+            </label>
 
-                <button type="submit">Create folder</button>
-            </EditForm>
-        </details>
-    }
+            <button type="submit">Create folder</button>
+        </EditForm>
+    </details>
 
     <details class="upload" data-menu>
         <summary class="button">Upload</summary>
@@ -82,7 +79,7 @@
 
 @if (openFile is not null)
 {
-    <FileWindow File="openFile" Now="now" CloseHref="@ViewHref" Folders="allFolders" />
+    <FileWindow File="openFile" Now="now" CloseHref="@ViewHref" Folders="FolderPaths" />
 }
 else if (folder is not null && Share)
 {
@@ -115,12 +112,15 @@ else
 {
     <nav class="path" aria-label="Location">
         <a class="crumb" href="desktop" data-folder-target="">Desktop</a>
+        @foreach (var ancestor in Ancestors(folder))
+        {
+            <a class="crumb" href="desktop/folders/@ancestor.Id" data-folder-target="@ancestor.Id">@ancestor.Name</a>
+        }
         <span aria-current="page">@folder.Name</span>
         <a class="button button-quiet" href="desktop/folders/@folder.Id?share=true">Share</a>
-        <form method="post" @formname="delete-folder" @onsubmit="DeleteFolderAsync"
-              data-confirm="Delete this folder with all its files and their links?">
+        <form method="post" @formname="delete-current-folder" @onsubmit="() => DeleteFolderAsync(folder)"
+              data-confirm="Delete this folder with everything in it?">
             <AntiforgeryToken />
-            <input type="hidden" name="DeleteFolderId" value="@folder.Id" />
             <button type="submit" class="button-danger">Delete folder</button>
         </form>
     </nav>
@@ -137,7 +137,7 @@ else
                 <span class="text">
                     <span class="name">@name</span>
                 </span>
-                <span class="left">@count @(count == 1 ? "file" : "files")</span>
+                <span class="left">@count @(count == 1 ? "item" : "items")</span>
             </a>
         </li>
     }
@@ -213,10 +213,7 @@ else
 </div>
 
 <div class="context-menu" role="menu" aria-label="Desktop" data-context-menu="desktop" hidden>
-    @if (FolderId is null)
-    {
-        <button type="button" role="menuitem" data-action="new-folder">New folder</button>
-    }
+    <button type="button" role="menuitem" data-action="new-folder">New folder</button>
     <button type="button" role="menuitem" data-action="upload">Upload files</button>
 </div>
 
@@ -231,19 +228,17 @@ else
     </form>
 </div>
 
-@if (FolderId is null)
-{
-    <div class="context-menu" role="menu" aria-label="Folder" data-context-menu="folder" hidden>
-        <a role="menuitem" data-from="href">Open</a>
-        <a role="menuitem" data-from="share">Share</a>
-        <form method="post" @formname="delete-folder" @onsubmit="DeleteFolderAsync"
-              data-confirm="Delete this folder with all its files and their links?">
-            <AntiforgeryToken />
-            <input type="hidden" name="DeleteFolderId" data-from="folderTarget" />
-            <button type="submit" role="menuitem">Delete</button>
-        </form>
-    </div>
-}
+<div class="context-menu" role="menu" aria-label="Folder" data-context-menu="folder" hidden>
+    <a role="menuitem" data-from="href">Open</a>
+    <a role="menuitem" data-from="share">Share</a>
+    <form method="post" @formname="delete-folder"
+          @onsubmit="() => DeleteFolderAsync(allFolders.SingleOrDefault(f => f.Id == DeleteFolderId))"
+          data-confirm="Delete this folder with everything in it?">
+        <AntiforgeryToken />
+        <input type="hidden" name="DeleteFolderId" data-from="folderTarget" />
+        <button type="submit" role="menuitem">Delete</button>
+    </form>
+</div>
 
 @code {
     [Parameter]
@@ -283,7 +278,13 @@ else
 
     private readonly DateTimeOffset now = DateTimeOffset.UtcNow;
 
-    private string ViewHref => FolderId is { } folderId ? $"desktop/folders/{folderId}" : "desktop";
+    private string ViewHref => FolderHref(FolderId);
+
+    private List<(Guid Id, string Path)> FolderPaths =>
+        allFolders
+            .Select(f => (f.Id, string.Join(" / ", Ancestors(f).Append(f).Select(a => a.Name))))
+            .OrderBy(f => f.Item2, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -309,19 +310,18 @@ else
                 return;
             }
         }
-        else
-        {
-            var counts = await db.Files
-                .Where(file => file.OwnerId == ownerId && file.UploadedAt != null && file.FolderId != null)
-                .WhereNotExpired(now)
-                .GroupBy(file => file.FolderId!.Value)
-                .Select(group => new { FolderId = group.Key, Count = group.Count() })
-                .ToDictionaryAsync(item => item.FolderId, item => item.Count);
 
-            folders = allFolders
-                .Select(f => (f.Id, f.Name, counts.GetValueOrDefault(f.Id)))
-                .ToList();
-        }
+        var fileCounts = await db.Files
+            .Where(file => file.OwnerId == ownerId && file.UploadedAt != null && file.FolderId != null)
+            .WhereNotExpired(now)
+            .GroupBy(file => file.FolderId!.Value)
+            .Select(group => new { FolderId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.FolderId, item => item.Count);
+
+        folders = allFolders
+            .Where(f => f.ParentId == FolderId)
+            .Select(f => (f.Id, f.Name, fileCounts.GetValueOrDefault(f.Id) + allFolders.Count(child => child.ParentId == f.Id)))
+            .ToList();
 
         var items = await db.Files
             .AsNoTracking()
@@ -359,12 +359,13 @@ else
         db.Folders.Add(new Folder
         {
             OwnerId = ownerId,
+            ParentId = folder?.Id,
             Name = FolderInput.Name.Trim(),
             CreatedAt = DateTimeOffset.UtcNow
         });
         await db.SaveChangesAsync();
 
-        Navigation.NavigateTo("desktop");
+        Navigation.NavigateTo(ViewHref);
     }
 
     private async Task DeleteFileAsync()
@@ -383,23 +384,44 @@ else
         Navigation.NavigateTo(ViewHref);
     }
 
-    private async Task DeleteFolderAsync()
+    private async Task DeleteFolderAsync(Folder? target)
     {
-        if (allFolders.SingleOrDefault(f => f.Id == DeleteFolderId) is not { } target)
+        if (target is null)
         {
             Navigation.NotFound();
             return;
         }
 
+        var ids = new List<Guid> { target.Id };
+        for (var i = 0; i < ids.Count; i++)
+        {
+            ids.AddRange(allFolders.Where(f => f.ParentId == ids[i]).Select(f => f.Id));
+        }
+
         await using var db = await DbFactory.CreateDbContextAsync();
         await db.Files
-            .Where(file => file.FolderId == target.Id && file.OwnerId == ownerId)
+            .Where(file => file.FolderId != null && ids.Contains(file.FolderId.Value) && file.OwnerId == ownerId)
             .DeleteWithBlobsAsync(db, Storage);
-        await db.ShareLinks.Where(link => link.FolderId == target.Id).ExecuteDeleteAsync();
-        await db.Folders.Where(f => f.Id == target.Id && f.OwnerId == ownerId).ExecuteDeleteAsync();
+        await db.ShareLinks.Where(link => link.FolderId != null && ids.Contains(link.FolderId.Value)).ExecuteDeleteAsync();
+        await db.Folders.Where(f => ids.Contains(f.Id) && f.OwnerId == ownerId).ExecuteDeleteAsync();
 
-        Navigation.NavigateTo("desktop");
+        Navigation.NavigateTo(FolderId is { } current && ids.Contains(current) ? FolderHref(target.ParentId) : ViewHref);
     }
+
+    private List<Folder> Ancestors(Folder child)
+    {
+        var chain = new List<Folder>();
+        var parent = allFolders.SingleOrDefault(f => f.Id == child.ParentId);
+        while (parent is not null)
+        {
+            chain.Insert(0, parent);
+            parent = allFolders.SingleOrDefault(f => f.Id == parent.ParentId);
+        }
+
+        return chain;
+    }
+
+    private static string FolderHref(Guid? folderId) => folderId is { } id ? $"desktop/folders/{id}" : "desktop";
 
     private static string DescribeLinks(List<ShareLink> links) => links switch
     {

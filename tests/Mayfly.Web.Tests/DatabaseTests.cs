@@ -245,13 +245,56 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
 
         var desktop = await owner.GetStringAsync("/desktop", Ct);
         Assert.Contains("Screenshots", desktop);
-        Assert.Contains("1 file", desktop);
+        Assert.Contains("1 item", desktop);
         Assert.Contains("outside.txt", desktop);
         Assert.DoesNotContain("inside.png", desktop);
 
         var inFolder = await owner.GetStringAsync($"/desktop/folders/{folderId}", Ct);
         Assert.Contains("inside.png", inFolder);
         Assert.DoesNotContain("outside.txt", inFolder);
+    }
+
+    [Fact]
+    public async Task CreateFolder_InsideAFolder_NestsIt()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var parentId = await SeedFolderAsync(ownerId);
+        var parentUrl = $"/desktop/folders/{parentId}";
+
+        var created = await owner.PostAsync(
+            parentUrl,
+            Form(await GetAntiforgeryTokenAsync(owner, parentUrl), ("_handler", "create-folder"), ("FolderInput.Name", "Nested")),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, created.StatusCode);
+        Assert.Equal(parentUrl, created.Headers.Location?.AbsolutePath);
+        Guid childId;
+        await using (var db = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            childId = await db.Folders.Where(f => f.OwnerId == ownerId && f.ParentId == parentId && f.Name == "Nested").Select(f => f.Id).SingleAsync(Ct);
+        }
+
+        Assert.DoesNotContain("Nested", await owner.GetStringAsync("/desktop", Ct));
+        Assert.Contains($"href=\"desktop/folders/{childId}\"", await owner.GetStringAsync(parentUrl, Ct));
+        Assert.Contains($"href=\"desktop/folders/{parentId}\"", await owner.GetStringAsync($"/desktop/folders/{childId}", Ct));
+    }
+
+    [Fact]
+    public async Task CreateFolder_InAnotherUsersFolder_CreatesNothing()
+    {
+        var (_, ownerId) = await RegisterAsync();
+        var (other, _) = await RegisterAsync();
+        var folderId = await SeedFolderAsync(ownerId);
+
+        var response = await other.PostAsync(
+            $"/desktop/folders/{folderId}",
+            Form(await GetAntiforgeryTokenAsync(other, "/desktop"), ("_handler", "create-folder"), ("FolderInput.Name", "Intruder")),
+            Ct);
+
+        Assert.False(response.IsSuccessStatusCode);
+        Assert.NotEqual(HttpStatusCode.Redirect, response.StatusCode);
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.False(await db.Folders.AnyAsync(f => f.Name == "Intruder", Ct));
     }
 
     [Fact]
@@ -304,7 +347,7 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
 
         var response = await owner.PostAsync(
             url,
-            Form(await GetAntiforgeryTokenAsync(owner, url), ("_handler", "delete-folder"), ("DeleteFolderId", folderId.ToString())),
+            Form(await GetAntiforgeryTokenAsync(owner, url), ("_handler", "delete-current-folder")),
             Ct);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
@@ -320,6 +363,40 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     }
 
     [Fact]
+    public async Task DeleteFolder_RemovesNestedFoldersAndReturnsToTheParent()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var topId = await SeedFolderAsync(ownerId);
+        var middleId = await SeedFolderAsync(ownerId, topId);
+        var bottomId = await SeedFolderAsync(ownerId, middleId);
+        var siblingId = await SeedFolderAsync(ownerId, topId);
+        var now = DateTimeOffset.UtcNow;
+        var (deep, deepBlob) = await SeedFileAsync(ownerId, now, uploaded: true, folderId: bottomId);
+        var (kept, keptBlob) = await SeedFileAsync(ownerId, now, uploaded: true, folderId: siblingId);
+        await SeedFolderLinkAsync(bottomId);
+        await SeedFolderLinkAsync(siblingId);
+        var url = $"/desktop/folders/{middleId}";
+
+        var response = await owner.PostAsync(
+            url,
+            Form(await GetAntiforgeryTokenAsync(owner, url), ("_handler", "delete-current-folder")),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal($"/desktop/folders/{topId}", response.Headers.Location?.AbsolutePath);
+        Assert.False(await deepBlob.ExistsAsync(Ct));
+        Assert.True(await keptBlob.ExistsAsync(Ct));
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.False(await db.Folders.AnyAsync(f => f.Id == middleId || f.Id == bottomId, Ct));
+        Assert.False(await db.Files.AnyAsync(f => f.Id == deep.Id, Ct));
+        Assert.False(await db.ShareLinks.AnyAsync(link => link.FolderId == bottomId || link.FileId == deep.Id, Ct));
+        Assert.True(await db.Folders.AnyAsync(f => f.Id == topId, Ct));
+        Assert.True(await db.Folders.AnyAsync(f => f.Id == siblingId, Ct));
+        Assert.True(await db.Files.AnyAsync(f => f.Id == kept.Id, Ct));
+        Assert.True(await db.ShareLinks.AnyAsync(link => link.FolderId == siblingId, Ct));
+    }
+
+    [Fact]
     public async Task DeleteFolder_ByAnotherUser_KeepsFolder()
     {
         var (_, ownerId) = await RegisterAsync();
@@ -328,7 +405,7 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
 
         var response = await other.PostAsync(
             $"/desktop/folders/{folderId}",
-            Form(await GetAntiforgeryTokenAsync(other, "/desktop"), ("_handler", "delete-folder")),
+            Form(await GetAntiforgeryTokenAsync(other, "/desktop"), ("_handler", "delete-current-folder")),
             Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -712,9 +789,9 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         return await db.Files.Where(f => f.Id == fileId).Select(f => f.FolderId).SingleAsync(Ct);
     }
 
-    private async Task<Guid> SeedFolderAsync(string ownerId)
+    private async Task<Guid> SeedFolderAsync(string ownerId, Guid? parentId = null)
     {
-        var folder = new Folder { OwnerId = ownerId, Name = "folder", CreatedAt = DateTimeOffset.UtcNow };
+        var folder = new Folder { OwnerId = ownerId, ParentId = parentId, Name = "folder", CreatedAt = DateTimeOffset.UtcNow };
 
         await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
         db.Folders.Add(folder);
