@@ -304,7 +304,7 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
 
         var response = await owner.PostAsync(
             url,
-            Form(await GetAntiforgeryTokenAsync(owner, url), ("_handler", "delete-folder")),
+            Form(await GetAntiforgeryTokenAsync(owner, url), ("_handler", "delete-folder"), ("DeleteFolderId", folderId.ToString())),
             Ct);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
@@ -334,6 +334,60 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
         Assert.True(await db.Folders.AnyAsync(f => f.Id == folderId, Ct));
+    }
+
+    [Fact]
+    public async Task DesktopMenu_DeletesOnlyOwnFolder()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var (other, _) = await RegisterAsync();
+        var deletedId = await SeedFolderAsync(ownerId);
+        var keptId = await SeedFolderAsync(ownerId);
+        await SeedFolderLinkAsync(keptId);
+
+        var ownResponse = await owner.PostAsync(
+            "/desktop",
+            Form(await GetAntiforgeryTokenAsync(owner, "/desktop"), ("_handler", "delete-folder"), ("DeleteFolderId", deletedId.ToString())),
+            Ct);
+        var foreignResponse = await other.PostAsync(
+            "/desktop",
+            Form(await GetAntiforgeryTokenAsync(other, "/desktop"), ("_handler", "delete-folder"), ("DeleteFolderId", keptId.ToString())),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, ownResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, foreignResponse.StatusCode);
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.False(await db.Folders.AnyAsync(f => f.Id == deletedId, Ct));
+        Assert.True(await db.Folders.AnyAsync(f => f.Id == keptId, Ct));
+        Assert.True(await db.ShareLinks.AnyAsync(link => link.FolderId == keptId, Ct));
+    }
+
+    [Fact]
+    public async Task DesktopMenu_DeletesOnlyOwnFile()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var (other, _) = await RegisterAsync();
+        var now = DateTimeOffset.UtcNow;
+        var (deleted, deletedBlob) = await SeedFileAsync(ownerId, now, uploaded: true);
+        var (kept, keptBlob) = await SeedFileAsync(ownerId, now, uploaded: true);
+
+        var ownResponse = await owner.PostAsync(
+            "/desktop",
+            Form(await GetAntiforgeryTokenAsync(owner, "/desktop"), ("_handler", "delete-desktop-file"), ("DeleteFileId", deleted.Id.ToString())),
+            Ct);
+        var foreignResponse = await other.PostAsync(
+            "/desktop",
+            Form(await GetAntiforgeryTokenAsync(other, "/desktop"), ("_handler", "delete-desktop-file"), ("DeleteFileId", kept.Id.ToString())),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, ownResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, foreignResponse.StatusCode);
+        Assert.False(await deletedBlob.ExistsAsync(Ct));
+        Assert.True(await keptBlob.ExistsAsync(Ct));
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.False(await db.Files.AnyAsync(f => f.Id == deleted.Id, Ct));
+        Assert.True(await db.Files.AnyAsync(f => f.Id == kept.Id, Ct));
+        Assert.True(await db.ShareLinks.AnyAsync(link => link.FileId == kept.Id, Ct));
     }
 
     [Fact]

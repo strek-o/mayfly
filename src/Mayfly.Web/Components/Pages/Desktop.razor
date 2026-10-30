@@ -120,6 +120,7 @@ else
         <form method="post" @formname="delete-folder" @onsubmit="DeleteFolderAsync"
               data-confirm="Delete this folder with all its files and their links?">
             <AntiforgeryToken />
+            <input type="hidden" name="DeleteFolderId" value="@folder.Id" />
             <button type="submit" class="button-danger">Delete folder</button>
         </form>
     </nav>
@@ -129,7 +130,7 @@ else
     @foreach (var (id, name, count) in folders)
     {
         <li class="item folder">
-            <a href="desktop/folders/@id" data-folder-target="@id">
+            <a href="desktop/folders/@id" data-folder-target="@id" data-share="desktop/folders/@id?share=true">
                 <span class="glyph">
                     <svg aria-hidden="true"><use href="#folder-glyph" /></svg>
                 </span>
@@ -211,6 +212,39 @@ else
     <p>Drop to upload</p>
 </div>
 
+<div class="context-menu" role="menu" aria-label="Desktop" data-context-menu="desktop" hidden>
+    @if (FolderId is null)
+    {
+        <button type="button" role="menuitem" data-action="new-folder">New folder</button>
+    }
+    <button type="button" role="menuitem" data-action="upload">Upload files</button>
+</div>
+
+<div class="context-menu" role="menu" aria-label="File" data-context-menu="file" hidden>
+    <a role="menuitem" data-from="href">Open</a>
+    <a role="menuitem" data-from="download" data-enhance-nav="false">Download</a>
+    <form method="post" @formname="delete-desktop-file" @onsubmit="DeleteFileAsync"
+          data-confirm="Delete this file with all its links?">
+        <AntiforgeryToken />
+        <input type="hidden" name="DeleteFileId" data-from="fileId" />
+        <button type="submit" role="menuitem">Delete</button>
+    </form>
+</div>
+
+@if (FolderId is null)
+{
+    <div class="context-menu" role="menu" aria-label="Folder" data-context-menu="folder" hidden>
+        <a role="menuitem" data-from="href">Open</a>
+        <a role="menuitem" data-from="share">Share</a>
+        <form method="post" @formname="delete-folder" @onsubmit="DeleteFolderAsync"
+              data-confirm="Delete this folder with all its files and their links?">
+            <AntiforgeryToken />
+            <input type="hidden" name="DeleteFolderId" data-from="folderTarget" />
+            <button type="submit" role="menuitem">Delete</button>
+        </form>
+    </div>
+}
+
 @code {
     [Parameter]
     public Guid? FolderId { get; set; }
@@ -226,6 +260,12 @@ else
 
     [SupplyParameterFromForm(FormName = "create-folder")]
     private FolderInputModel FolderInput { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "delete-desktop-file")]
+    private Guid? DeleteFileId { get; set; }
+
+    [SupplyParameterFromForm(FormName = "delete-folder")]
+    private Guid? DeleteFolderId { get; set; }
 
     private List<Folder> allFolders = [];
 
@@ -327,19 +367,36 @@ else
         Navigation.NavigateTo("desktop");
     }
 
+    private async Task DeleteFileAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var deleted = await db.Files
+            .Where(file => file.Id == DeleteFileId && file.OwnerId == ownerId)
+            .DeleteWithBlobsAsync(db, Storage);
+
+        if (deleted == 0)
+        {
+            Navigation.NotFound();
+            return;
+        }
+
+        Navigation.NavigateTo(ViewHref);
+    }
+
     private async Task DeleteFolderAsync()
     {
-        if (folder is null)
+        if (allFolders.SingleOrDefault(f => f.Id == DeleteFolderId) is not { } target)
         {
+            Navigation.NotFound();
             return;
         }
 
         await using var db = await DbFactory.CreateDbContextAsync();
         await db.Files
-            .Where(file => file.FolderId == folder.Id && file.OwnerId == ownerId)
+            .Where(file => file.FolderId == target.Id && file.OwnerId == ownerId)
             .DeleteWithBlobsAsync(db, Storage);
-        await db.ShareLinks.Where(link => link.FolderId == folder.Id).ExecuteDeleteAsync();
-        await db.Folders.Where(f => f.Id == folder.Id && f.OwnerId == ownerId).ExecuteDeleteAsync();
+        await db.ShareLinks.Where(link => link.FolderId == target.Id).ExecuteDeleteAsync();
+        await db.Folders.Where(f => f.Id == target.Id && f.OwnerId == ownerId).ExecuteDeleteAsync();
 
         Navigation.NavigateTo("desktop");
     }

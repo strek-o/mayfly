@@ -128,12 +128,151 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
+  const invoker = closeContextMenu();
   const menu = document.querySelector("details[data-menu][open]");
-  if (menu) {
+  if (invoker) {
+    invoker.focus();
+  } else if (menu) {
     menu.open = false;
   } else {
     document.querySelector("[data-window-close]")?.click();
   }
+});
+
+const contextMenuExclusions =
+  ".menubar, .window, .path, .context-menu, input, select, textarea, [contenteditable]";
+let openContextMenu = null;
+
+function closeContextMenu() {
+  if (!openContextMenu) {
+    return null;
+  }
+
+  const { menu, invoker } = openContextMenu;
+  menu.hidden = true;
+  openContextMenu = null;
+  return invoker;
+}
+
+function contextTarget(element) {
+  const file = element.closest("a[data-file-id]");
+  if (file) {
+    return ["file", file];
+  }
+
+  const folder = element.closest(".folder > a[data-folder-target]");
+  return folder ? ["folder", folder] : ["desktop", null];
+}
+
+function fillContextMenu(menu, invoker) {
+  for (const item of menu.querySelectorAll("[data-from]")) {
+    const value =
+      item.dataset.from === "href"
+        ? invoker.getAttribute("href")
+        : invoker.dataset[item.dataset.from];
+    if (item instanceof HTMLInputElement) {
+      item.value = value;
+    } else {
+      item.setAttribute("href", value);
+    }
+  }
+}
+
+document.addEventListener("contextmenu", (event) => {
+  if (
+    !document.querySelector("[data-context-menu]") ||
+    event.target.closest(contextMenuExclusions)
+  ) {
+    return;
+  }
+
+  const [kind, invoker] = contextTarget(event.target);
+  const menu = document.querySelector(`[data-context-menu="${kind}"]`);
+  if (!menu) {
+    return;
+  }
+
+  event.preventDefault();
+  closeContextMenu();
+  if (invoker) {
+    fillContextMenu(menu, invoker);
+  }
+
+  const anchor =
+    event.clientX || event.clientY
+      ? { left: event.clientX, bottom: event.clientY }
+      : (invoker ?? event.target).getBoundingClientRect();
+  menu.hidden = false;
+  const { width, height } = menu.getBoundingClientRect();
+  menu.style.left = `${Math.max(8, Math.min(anchor.left, innerWidth - width - 8))}px`;
+  menu.style.top = `${Math.max(8, Math.min(anchor.bottom, innerHeight - height - 8))}px`;
+  openContextMenu = { menu, invoker: invoker ?? document.activeElement };
+  menu.querySelector('[role="menuitem"]').focus();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (!openContextMenu) {
+    return;
+  }
+
+  const items = [...openContextMenu.menu.querySelectorAll('[role="menuitem"]')];
+  const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
+  if (step) {
+    event.preventDefault();
+    const index = items.indexOf(document.activeElement);
+    items[(index + step + items.length) % items.length].focus();
+  } else if (event.key === "Tab") {
+    closeContextMenu();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Delete" || openContextMenu) {
+    return;
+  }
+
+  const [kind, invoker] = contextTarget(event.target);
+  const menu =
+    invoker && document.querySelector(`[data-context-menu="${kind}"]`);
+  if (menu) {
+    event.preventDefault();
+    fillContextMenu(menu, invoker);
+    menu.querySelector("form").requestSubmit();
+  }
+});
+
+document.addEventListener("pointerdown", (event) => {
+  if (openContextMenu && !openContextMenu.menu.contains(event.target)) {
+    closeContextMenu();
+  }
+});
+
+document.addEventListener("click", (event) => {
+  if (openContextMenu?.menu.contains(event.target)) {
+    setTimeout(closeContextMenu);
+  }
+});
+
+document.addEventListener("scroll", closeContextMenu, true);
+addEventListener("resize", closeContextMenu);
+addEventListener("blur", closeContextMenu);
+
+const desktopActions = {
+  "new-folder": () => {
+    const details = document.querySelector(".new-folder");
+    details.open = true;
+    details.querySelector('input:not([type="hidden"])').focus();
+  },
+  upload: () => {
+    const details = document.querySelector(".upload");
+    details.open = true;
+    details.querySelector('input[type="file"]').click();
+  },
+};
+
+document.addEventListener("click", (event) => {
+  const action = event.target.closest("[data-action]")?.dataset.action;
+  desktopActions[action]?.();
 });
 
 const markdownMarks = {
