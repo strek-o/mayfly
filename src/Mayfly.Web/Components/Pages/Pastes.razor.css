@@ -33,34 +33,14 @@
   margin-bottom: 0.75rem;
 }
 
-.paste {
-  display: flex;
-  flex-direction: column;
-  width: min(47.5rem, calc(100% - 2rem));
-  min-height: calc(100dvh - 4.75rem);
-  margin: 1rem auto;
-}
-
-.paste > h1,
-.paste > .empty {
-  margin-inline: 1.25rem;
-}
-
 .paste > h1 {
-  margin-top: 1.25rem;
+  margin: 1.25rem 1.25rem 0.75rem;
   font-size: 1.25rem;
 }
 
 .paste > ::deep form:not(.composer) {
   width: min(22rem, calc(100% - 2.5rem));
   margin: 0.5rem 1.25rem;
-}
-
-.paste > header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 1rem 1.25rem 0.75rem;
 }
 
 .paste > header .button {
@@ -81,14 +61,6 @@
   gap: 0.375rem;
   cursor: pointer;
   list-style: none;
-}
-
-.switcher h1 {
-  margin: 0;
-  overflow: hidden;
-  font-size: 1.25rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .switcher svg {
@@ -196,33 +168,6 @@
   font-size: 0.875rem;
 }
 
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0 1.375rem;
-  padding: 0 1.25rem;
-  border-top: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
-}
-
-.tabs > a {
-  padding: 0.625rem 0 0.5rem;
-  border-bottom: 2px solid transparent;
-  color: var(--mute);
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.tabs > a:hover {
-  color: var(--ink);
-}
-
-.tabs > a[aria-current] {
-  border-color: var(--accent);
-  color: var(--ink);
-}
-
 .delete-thread {
   margin: 0 0 0 -1rem;
 }
@@ -280,159 +225,12 @@
   margin-bottom: 0.75rem;
 }
 
-.paste > .empty {
-  margin-top: 1rem;
-  color: var(--mute);
-}
-
-.tabs + .empty {
-  flex: 1;
-}
-
 .paste > h1 + .empty {
   margin-top: 0;
 }
 
-.entries {
-  flex: 1;
-  margin: 0;
-  padding: 0.25rem 1.25rem;
-  list-style: none;
-}
-
-.entries li {
-  padding: 0.875rem 0;
-  border-bottom: 1px solid var(--soft);
-}
-
-.entries header {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.25rem;
-  color: var(--mute);
-  font-size: 0.8125rem;
-}
-
-.entries header b {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-.paste ::deep .composer {
-  display: grid;
-  margin: 0.75rem 1.25rem 1.25rem;
-}
-
-.editor {
-  min-height: 11rem;
-  max-height: 55vh;
-  margin-bottom: 0.75rem;
-  padding: 0.625rem 0.875rem;
-  overflow-y: auto;
-  border: 2px solid var(--field);
-  border-radius: 10px;
-  cursor: text;
-}
-
-.editor:focus {
-  border-color: var(--accent);
-  outline: none;
-}
-
-.editor:empty::before {
-  content: attr(data-placeholder);
-  color: var(--mute);
-}
-
-.tools {
-  position: fixed;
-  top: 50%;
-  left: calc(50% - 27.375rem);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px;
-  border-radius: var(--radius-panel);
-  background: var(--paper);
-  box-shadow: var(--shadow-float);
-  transform: translateY(-50%);
-}
-
-.tools button {
-  width: 2.125rem;
-  min-height: 2.125rem;
-  padding: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--ink);
-}
-
-.tools button:hover,
-.tools button[aria-pressed="true"] {
-  background: var(--soft);
-  color: var(--accent);
-}
-
-.tools svg {
-  width: 1.125rem;
-  height: 1.125rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.tools hr {
-  margin: 4px 2px;
-  border: 0;
-  border-top: 1px solid var(--rule);
-}
-
-.send {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  color: var(--mute);
-  font-size: 0.8125rem;
-}
-
-@media (max-width: 900px) {
-  .tools {
-    position: static;
-    flex-direction: row;
-    flex-wrap: wrap;
-    margin-bottom: 0.5rem;
-    padding: 0;
-    box-shadow: none;
-    transform: none;
-  }
-
-  .tools hr {
-    margin: 4px 2px;
-    border-top: 0;
-    border-left: 1px solid var(--rule);
-  }
-}
-
 @media (max-width: 640px) {
-  .paste {
-    width: 100%;
-    min-height: calc(100dvh - 2.75rem);
-    margin: 0;
-    border-radius: 0;
-  }
-
-  .paste > header {
-    flex-wrap: wrap;
-  }
-
   .switcher {
     flex-basis: 100%;
-  }
-
-  .send span {
-    display: none;
   }
 }

@@ -1,0 +1,24 @@
+.entries {
+  flex: 1;
+  margin: 0;
+  padding: 0.25rem 1.25rem;
+  list-style: none;
+}
+
+.entries li {
+  padding: 0.875rem 0;
+  border-bottom: 1px solid var(--soft);
+}
+
+.entries header {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+  color: var(--mute);
+  font-size: 0.8125rem;
+}
+
+.entries header b {
+  color: var(--ink);
+  font-weight: 600;
+}

@@ -1,0 +1,27 @@
+@using Mayfly.Core.Data
+@using Mayfly.Web.Pastes
+
+<ol class="entries">
+    @foreach (var entry in Entries)
+    {
+        <li id="entry-@entry.Id">
+            <header>
+                <b>@(entry.AuthorName ?? OwnerName)</b>
+                @if (entry.AuthorName is not null)
+                {
+                    <span>guest</span>
+                }
+                <LocalTime Value="entry.CreatedAt" />
+            </header>
+            <div class="markdown">@EntryMarkdown.ToHtml(entry.Content)</div>
+        </li>
+    }
+</ol>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<ThreadEntry> Entries { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public string OwnerName { get; set; } = default!;
+}

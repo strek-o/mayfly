@@ -6,7 +6,6 @@
 @using System.ComponentModel.DataAnnotations
 @using Mayfly.Core.Data
 @using Mayfly.Core.Time
-@using Mayfly.Web.Pastes
 @using Mayfly.Web.Time
 @using Microsoft.AspNetCore.Components.Sections
 @using Microsoft.AspNetCore.Identity
@@ -143,58 +142,14 @@
             }
             else
             {
-                <ol class="entries">
-                    @foreach (var entry in thread.Entries)
-                    {
-                        <li id="entry-@entry.Id">
-                            <header>
-                                <b>@(entry.AuthorName ?? "You")</b>
-                                @if (entry.AuthorName is not null)
-                                {
-                                    <span>guest</span>
-                                }
-                                <LocalTime Value="entry.CreatedAt" />
-                            </header>
-                            <div class="markdown">@EntryMarkdown.ToHtml(entry.Content)</div>
-                        </li>
-                    }
-                </ol>
+                <EntryList Entries="thread.Entries" OwnerName="You" />
             }
 
             <EditForm Model="EntryInput" FormName="add-entry" OnValidSubmit="AddEntryAsync" method="post" class="composer">
                 <DataAnnotationsValidator />
                 <ValidationSummary />
 
-                <div class="tools" role="toolbar" aria-label="Formatting">
-                    <button type="button" data-command="bold" aria-pressed="false" title="Bold (Ctrl+B)">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h9a4 4 0 0 1 0 8H7a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h7a4 4 0 0 1 0 8" /></svg>
-                    </button>
-                    <button type="button" data-command="italic" aria-pressed="false" title="Italic (Ctrl+I)">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-9M14 20H5M15 4 9 20" /></svg>
-                    </button>
-                    <button type="button" data-command="underline" aria-pressed="false" title="Underline (Ctrl+U)">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4v6a6 6 0 0 0 12 0V4M4 20h16" /></svg>
-                    </button>
-                    <button type="button" data-command="strikeThrough" aria-pressed="false" title="Strikethrough">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 4H9a3 3 0 0 0-2.83 4M14 12a4 4 0 0 1 0 8H6M4 12h16" /></svg>
-                    </button>
-                    <hr />
-                    <button type="button" data-command="code" aria-pressed="false" title="Code">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6" /></svg>
-                    </button>
-                    <button type="button" data-command="insertUnorderedList" aria-pressed="false" title="List">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>
-                    </button>
-                </div>
-
-                <div class="editor markdown" contenteditable="true" role="textbox" aria-multiline="true"
-                     aria-label="New entry" data-editor data-placeholder="Write an entry…"></div>
-                <InputTextArea @bind-Value="EntryInput.Content" hidden />
-
-                <div class="send">
-                    <span>Ctrl+Enter to add</span>
-                    <button type="submit">Add entry</button>
-                </div>
+                <EntryEditor Name="EntryInput.Content" Value="@EntryInput.Content" />
             </EditForm>
         }
     }
