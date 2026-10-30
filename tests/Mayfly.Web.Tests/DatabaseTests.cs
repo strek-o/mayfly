@@ -224,6 +224,49 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     }
 
     [Fact]
+    public async Task DeleteFolder_RemovesItsFilesBlobsAndLinksOnly()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var folderId = await SeedFolderAsync(ownerId);
+        var now = DateTimeOffset.UtcNow;
+        var (inside, insideBlob) = await SeedFileAsync(ownerId, now, uploaded: true, folderId: folderId);
+        var (outside, outsideBlob) = await SeedFileAsync(ownerId, now, uploaded: true);
+        var url = $"/desktop/folders/{folderId}";
+
+        var response = await owner.PostAsync(
+            url,
+            Form(await GetAntiforgeryTokenAsync(owner, url), ("_handler", "delete-folder")),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.False(await insideBlob.ExistsAsync(Ct));
+        Assert.True(await outsideBlob.ExistsAsync(Ct));
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.False(await db.Folders.AnyAsync(f => f.Id == folderId, Ct));
+        Assert.False(await db.Files.AnyAsync(f => f.Id == inside.Id, Ct));
+        Assert.False(await db.ShareLinks.AnyAsync(link => link.FileId == inside.Id, Ct));
+        Assert.True(await db.Files.AnyAsync(f => f.Id == outside.Id, Ct));
+        Assert.True(await db.ShareLinks.AnyAsync(link => link.FileId == outside.Id, Ct));
+    }
+
+    [Fact]
+    public async Task DeleteFolder_ByAnotherUser_KeepsFolder()
+    {
+        var (_, ownerId) = await RegisterAsync();
+        var (other, _) = await RegisterAsync();
+        var folderId = await SeedFolderAsync(ownerId);
+
+        var response = await other.PostAsync(
+            $"/desktop/folders/{folderId}",
+            Form(await GetAntiforgeryTokenAsync(other, "/desktop"), ("_handler", "delete-folder")),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.True(await db.Folders.AnyAsync(f => f.Id == folderId, Ct));
+    }
+
+    [Fact]
     public async Task MoveFile_IntoOwnFolderAndBackToTheDesktop()
     {
         var (owner, ownerId) = await RegisterAsync();
