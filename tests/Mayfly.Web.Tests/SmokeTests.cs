@@ -161,7 +161,7 @@ public class SmokeTests(WebApplicationFactory<Program> factory) : IClassFixture<
         var response = await client.PostAsync("/s/not-a-real-token/download", form, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        Assert.Contains("<h3>Not Found</h3>", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Contains("This page doesn't exist, or what was here has already expired.", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]

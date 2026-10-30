@@ -1,0 +1,33 @@
+.not-found {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 1.5rem 1rem;
+}
+
+.brand {
+  position: absolute;
+  top: 1.5rem;
+  left: 2rem;
+  color: var(--ink);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.panel {
+  width: min(26rem, 100%);
+  padding: 2rem;
+  text-align: center;
+}
+
+h1 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1.5rem;
+}
+
+p {
+  margin: 0 0 1.5rem;
+  color: var(--mute);
+}
