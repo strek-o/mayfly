@@ -51,7 +51,7 @@
   width: 1px;
   background: linear-gradient(
     transparent,
-    rgb(91 63 209 / 42%) 25% 75%,
+    color-mix(in srgb, var(--accent) 42%, transparent) 25% 75%,
     transparent
   );
   pointer-events: none;
@@ -76,7 +76,7 @@
   inset: 0;
   background: radial-gradient(
     circle at 50% 50%,
-    rgb(255 255 255 / 55%),
+    rgb(var(--glass) / 55%),
     transparent 60%
   );
   opacity: 0;
@@ -139,7 +139,7 @@
     background: linear-gradient(
       90deg,
       transparent,
-      rgb(91 63 209 / 42%) 25% 75%,
+      color-mix(in srgb, var(--accent) 42%, transparent) 25% 75%,
       transparent
     );
   }

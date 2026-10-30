@@ -60,6 +60,9 @@
   --accent-strong: #4a2fbf;
   --soon: #b0186a;
   --selection: #dcd3fa;
+  --on-accent: #fff;
+  --danger-tint: #fdf1f7;
+  --glass: 255 255 255;
   --wallpaper:
     radial-gradient(at 12% 18%, #d6ccf6 0, transparent 46%),
     radial-gradient(at 88% 12%, #c6ece2 0, transparent 42%),
@@ -226,7 +229,7 @@ button,
   border: 0;
   border-radius: var(--radius);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font: 600 0.875rem/1.2 var(--font-ui);
   text-decoration: none;
   cursor: pointer;
@@ -260,7 +263,7 @@ button:disabled {
 }
 
 .button-danger:hover {
-  background: #fdf1f7;
+  background: var(--danger-tint);
 }
 
 .panel {

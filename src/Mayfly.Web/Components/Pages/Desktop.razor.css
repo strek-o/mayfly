@@ -130,7 +130,7 @@
   place-items: center;
   border: 2px dashed var(--accent);
   border-radius: var(--radius-panel);
-  background: rgb(255 255 255 / 60%);
+  background: rgb(var(--glass) / 60%);
 }
 
 .drop-zone[hidden] {
@@ -191,13 +191,13 @@
 
 .item > a:hover,
 .item:focus-within > a {
-  background: rgb(255 255 255 / 55%);
-  box-shadow: inset 0 0 0 1px rgb(91 63 209 / 35%);
+  background: rgb(var(--glass) / 55%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .item > a.drop-target,
 .path .crumb.drop-target {
-  background: rgb(91 63 209 / 14%);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   box-shadow: inset 0 0 0 2px var(--accent);
 }
 
@@ -208,7 +208,7 @@
 }
 
 .item > a[aria-current="true"] {
-  background: rgb(255 255 255 / 75%);
+  background: rgb(var(--glass) / 75%);
   box-shadow: inset 0 0 0 1.5px var(--accent);
 }
 
@@ -249,7 +249,7 @@
   font-weight: 600;
   line-height: 1.25;
   overflow-wrap: anywhere;
-  text-shadow: 0 1px 0 rgb(255 255 255 / 60%);
+  text-shadow: 0 1px 0 rgb(var(--glass) / 60%);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;

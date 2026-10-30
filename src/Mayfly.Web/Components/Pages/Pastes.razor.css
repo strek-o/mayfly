@@ -182,7 +182,7 @@
 }
 
 .delete-thread button:hover {
-  background: #fdf1f7;
+  background: var(--danger-tint);
   color: var(--soon);
 }
 
