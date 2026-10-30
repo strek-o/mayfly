@@ -287,6 +287,63 @@ button:disabled {
   font-weight: 500;
 }
 
+.markdown {
+  overflow-wrap: anywhere;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown pre,
+.markdown blockquote {
+  margin: 0 0 0.75rem;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  margin: 1rem 0 0.5rem;
+  font-size: 1.0625rem;
+}
+
+.markdown code {
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: var(--soft);
+  font-size: 0.875em;
+}
+
+.markdown pre {
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  border-radius: var(--radius);
+  background: var(--soft);
+}
+
+.markdown pre code {
+  padding: 0;
+  background: none;
+}
+
+.markdown blockquote {
+  padding-left: 0.875rem;
+  border-left: 2px solid var(--rule);
+  color: var(--ink-soft);
+}
+
+.markdown ins {
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

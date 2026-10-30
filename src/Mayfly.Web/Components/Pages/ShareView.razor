@@ -2,6 +2,7 @@
 @using Mayfly.Core.Data
 @using Mayfly.Core.Time
 @using Mayfly.Web.Files
+@using Mayfly.Web.Pastes
 @using Mayfly.Web.Time
 @using Mayfly.Web.Sharing
 @using Microsoft.AspNetCore.RateLimiting
@@ -34,7 +35,7 @@
             @foreach (var entry in thread.Entries)
             {
                 <article id="entry-@entry.Id">
-                    <pre>@entry.Content</pre>
+                    <div class="markdown">@EntryMarkdown.ToHtml(entry.Content)</div>
                     <small>@(entry.AuthorName ?? "Owner") ·
                         <LocalTime Value="entry.CreatedAt" />
                     </small>
