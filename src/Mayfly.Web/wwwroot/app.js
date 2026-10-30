@@ -133,6 +133,77 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+const inlineMarks = {
+  bold: "**",
+  italic: "_",
+  underline: "++",
+  strike: "~~",
+  code: "`",
+};
+const formatKeys = { b: "bold", i: "italic", u: "underline" };
+
+function markdownFor(format, selected) {
+  if (format === "link") {
+    return [`[${selected || "text"}](`, "https://", ")"];
+  }
+
+  if (format === "list") {
+    return [selected.replace(/^/gm, "- "), "", ""];
+  }
+
+  if (format === "code" && selected.includes("\n")) {
+    return ["```\n", selected, "\n```"];
+  }
+
+  return [inlineMarks[format], selected, inlineMarks[format]];
+}
+
+function formatSelection(textarea, format) {
+  const { value, selectionEnd: end } = textarea;
+  const start =
+    format === "list"
+      ? value.slice(0, textarea.selectionStart).lastIndexOf("\n") + 1
+      : textarea.selectionStart;
+  const [before, inner, after] = markdownFor(format, value.slice(start, end));
+
+  textarea.focus();
+  textarea.setSelectionRange(start, end);
+  if (!document.execCommand("insertText", false, before + inner + after)) {
+    textarea.setRangeText(before + inner + after);
+  }
+
+  const innerStart = start + before.length;
+  textarea.setSelectionRange(innerStart, innerStart + inner.length);
+}
+
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-format]");
+  const textarea = button?.form?.querySelector("textarea");
+  if (textarea) {
+    formatSelection(textarea, button.dataset.format);
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  const textarea = event.target;
+  if (
+    !(event.ctrlKey || event.metaKey) ||
+    !(textarea instanceof HTMLTextAreaElement) ||
+    !textarea.form?.querySelector("[data-format]")
+  ) {
+    return;
+  }
+
+  const format = formatKeys[event.key.toLowerCase()];
+  if (event.key === "Enter") {
+    event.preventDefault();
+    textarea.form.requestSubmit();
+  } else if (format) {
+    event.preventDefault();
+    formatSelection(textarea, format);
+  }
+});
+
 document.addEventListener("submit", (event) => {
   const message = event.target.dataset?.confirm;
   if (message && !confirm(message)) {
