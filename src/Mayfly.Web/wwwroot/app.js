@@ -153,7 +153,7 @@ function editorMarkdown(node) {
   for (const child of node.childNodes) {
     text +=
       child.nodeType === Node.TEXT_NODE
-        ? child.data.replaceAll(" ", " ")
+        ? child.data.replaceAll("\xa0", " ")
         : elementMarkdown(child);
   }
 
