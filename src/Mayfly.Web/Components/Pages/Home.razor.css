@@ -76,7 +76,7 @@
   inset: 0;
   background: radial-gradient(
     circle at 50% 50%,
-    rgb(var(--glass) / 55%),
+    color-mix(in srgb, var(--paper) 55%, transparent),
     transparent 60%
   );
   opacity: 0;

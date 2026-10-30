@@ -47,35 +47,67 @@
 }
 
 :root {
-  color-scheme: light;
-  --ink: #2a1f3d;
-  --ink-soft: #54496a;
-  --mute: #6a5f7d;
-  --rule: #e3dcef;
-  --field: #c9bfe0;
-  --soft: #f1edf7;
-  --tint: #f7f4fb;
-  --paper: #fff;
-  --accent: #5b3fd1;
-  --accent-strong: #4a2fbf;
-  --soon: #b0186a;
-  --selection: #dcd3fa;
-  --on-accent: #fff;
-  --danger-tint: #fdf1f7;
-  --glass: 255 255 255;
+  color-scheme: light dark;
+  --ink: light-dark(#2a1f3d, #eceaf0);
+  --ink-soft: light-dark(#54496a, #c9c6d1);
+  --mute: light-dark(#6a5f7d, #a19eab);
+  --rule: light-dark(#e3dcef, #34323b);
+  --field: light-dark(#c9bfe0, #4a4753);
+  --soft: light-dark(#f1edf7, #2a2830);
+  --tint: light-dark(#f7f4fb, #232128);
+  --paper: light-dark(#fff, #1c1b20);
+  --accent: light-dark(#5b3fd1, #a594ff);
+  --accent-strong: light-dark(#4a2fbf, #b9acff);
+  --soon: light-dark(#b0186a, #ff78b9);
+  --selection: light-dark(#dcd3fa, #453a80);
+  --on-accent: light-dark(#fff, #15112a);
+  --danger-tint: light-dark(#fdf1f7, #36202c);
   --wallpaper:
-    radial-gradient(at 12% 18%, #d6ccf6 0, transparent 46%),
-    radial-gradient(at 88% 12%, #c6ece2 0, transparent 42%),
-    radial-gradient(at 72% 82%, #f7dcec 0, transparent 48%),
-    radial-gradient(at 22% 88%, #cfe2f8 0, transparent 46%),
-    radial-gradient(at 50% 50%, #f5f1ea 0, transparent 60%), #ece8f3;
-  --shadow-float: 0 2px 6px rgb(42 31 61 / 6%), 0 14px 36px rgb(42 31 61 / 12%);
-  --shadow-panel: 0 2px 6px rgb(42 31 61 / 6%), 0 24px 60px rgb(42 31 61 / 14%);
+    radial-gradient(
+      at 12% 18%,
+      light-dark(#d6ccf6, #2a2440) 0,
+      transparent 46%
+    ),
+    radial-gradient(
+      at 88% 12%,
+      light-dark(#c6ece2, #1c2a29) 0,
+      transparent 42%
+    ),
+    radial-gradient(
+      at 72% 82%,
+      light-dark(#f7dcec, #2c1f29) 0,
+      transparent 48%
+    ),
+    radial-gradient(
+      at 22% 88%,
+      light-dark(#cfe2f8, #1e2433) 0,
+      transparent 46%
+    ),
+    radial-gradient(
+      at 50% 50%,
+      light-dark(#f5f1ea, transparent) 0,
+      transparent 60%
+    ),
+    light-dark(#ece8f3, #141317);
+  --shadow-float:
+    0 2px 6px light-dark(rgb(42 31 61 / 6%), rgb(0 0 0 / 30%)),
+    0 14px 36px light-dark(rgb(42 31 61 / 12%), rgb(0 0 0 / 45%));
+  --shadow-panel:
+    0 2px 6px light-dark(rgb(42 31 61 / 6%), rgb(0 0 0 / 30%)),
+    0 24px 60px light-dark(rgb(42 31 61 / 14%), rgb(0 0 0 / 50%));
   --radius: 6px;
   --radius-panel: 12px;
   --font-ui: "Libre Franklin", system-ui, sans-serif;
   --font-stamp: "Barlow Condensed", "Arial Narrow", sans-serif;
   --font-code: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 *,

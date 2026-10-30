@@ -25,6 +25,11 @@
         <summary aria-label="Account">@Initial</summary>
         <div class="account-menu">
             <p>@email</p>
+            <div class="theme" role="group" aria-label="Theme">
+                <button type="button" data-theme-choice="" aria-pressed="false">System</button>
+                <button type="button" data-theme-choice="light" aria-pressed="false">Light</button>
+                <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+            </div>
             <form action="account/logout" method="post">
                 <AntiforgeryToken />
                 <button type="submit" class="button-quiet">Sign out</button>

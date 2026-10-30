@@ -118,6 +118,34 @@
   width: 100%;
 }
 
+.theme {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  margin-bottom: 0.75rem;
+  padding: 2px;
+  border-radius: 5px;
+  background: var(--soft);
+}
+
+.theme button {
+  min-height: 1.75rem;
+  padding: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--mute);
+  font-size: 0.8125rem;
+}
+
+.theme button:hover {
+  color: var(--ink);
+}
+
+.theme button[aria-pressed="true"] {
+  background: var(--paper);
+  color: var(--ink);
+}
+
 @media (max-width: 640px) {
   .quota {
     display: none;

@@ -612,6 +612,31 @@ function applyLocalTime() {
   }
 }
 
+function markTheme() {
+  const theme = document.documentElement.dataset.theme ?? "";
+  for (const button of document.querySelectorAll("[data-theme-choice]")) {
+    button.setAttribute("aria-pressed", button.dataset.themeChoice === theme);
+  }
+}
+
+document.addEventListener("click", (event) => {
+  const choice = event.target.closest("[data-theme-choice]");
+  if (!choice) {
+    return;
+  }
+
+  const theme = choice.dataset.themeChoice;
+  document.cookie = `theme=${theme}; path=/; max-age=${theme ? 31_536_000 : 0}; samesite=lax; secure`;
+  if (theme) {
+    document.documentElement.dataset.theme = theme;
+  } else {
+    delete document.documentElement.dataset.theme;
+  }
+  markTheme();
+});
+
+document.addEventListener("DOMContentLoaded", markTheme);
+Blazor.addEventListener("enhancedload", markTheme);
 document.addEventListener("DOMContentLoaded", applyLocalTime);
 Blazor.addEventListener("enhancedload", applyLocalTime);
 document.addEventListener("DOMContentLoaded", restoreEditors);
