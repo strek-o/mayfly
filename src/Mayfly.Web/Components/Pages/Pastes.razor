@@ -92,7 +92,18 @@
         <nav class="tabs" aria-label="Threads">
             @foreach (var item in threads)
             {
-                <a href="pastes/@paste.Id/threads/@item.Id" aria-current="@(item.Id == thread?.Id ? "page" : null)">@item.Title</a>
+                var current = item.Id == thread?.Id;
+                <a href="pastes/@paste.Id/threads/@item.Id" aria-current="@(current ? "page" : null)">@item.Title</a>
+                @if (current)
+                {
+                    <form method="post" @formname="delete-thread" @onsubmit="DeleteThreadAsync" class="delete-thread"
+                          data-confirm="Delete this thread with its entries and links?">
+                        <AntiforgeryToken />
+                        <button type="submit" title="Delete thread" aria-label="Delete thread @item.Title">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+                        </button>
+                    </form>
+                }
             }
 
             <details class="new-thread" data-menu open="@(showThreadForm || threads.Count == 0)">
@@ -371,6 +382,20 @@
         await db.SaveChangesAsync();
 
         Navigation.NavigateTo($"pastes/{paste.Id}/threads/{thread.Id}#entry-{entry.Id}");
+    }
+
+    private async Task DeleteThreadAsync()
+    {
+        if (paste is null || thread is null)
+        {
+            return;
+        }
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.ShareLinks.Where(link => link.ThreadId == thread.Id).ExecuteDeleteAsync();
+        await db.Threads.Where(t => t.Id == thread.Id && t.PasteId == paste.Id).ExecuteDeleteAsync();
+
+        Navigation.NavigateTo($"pastes/{paste.Id}");
     }
 
     private async Task DeleteAsync()

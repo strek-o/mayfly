@@ -133,6 +133,56 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     }
 
     [Fact]
+    public async Task DeleteThread_RemovesItsEntriesAndLinksOnly()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var pasteId = await SeedPasteAsync(ownerId, "threads");
+        var deletedId = await SeedThreadAsync(pasteId);
+        var keptId = await SeedThreadAsync(pasteId);
+        await SeedShareLinkAsync(pasteId, maxViews: null, deletedId);
+        await SeedShareLinkAsync(pasteId, maxViews: null, keptId);
+        await SeedShareLinkAsync(pasteId, maxViews: null);
+        await using (var seed = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            seed.Entries.Add(new ThreadEntry { ThreadId = deletedId, Content = "gone", CreatedAt = DateTimeOffset.UtcNow });
+            seed.Entries.Add(new ThreadEntry { ThreadId = keptId, Content = "kept", CreatedAt = DateTimeOffset.UtcNow });
+            await seed.SaveChangesAsync(Ct);
+        }
+
+        var threadUrl = $"/pastes/{pasteId}/threads/{deletedId}";
+        var response = await owner.PostAsync(
+            threadUrl,
+            Form(await GetAntiforgeryTokenAsync(owner, threadUrl), ("_handler", "delete-thread")),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal($"/pastes/{pasteId}", response.Headers.Location?.AbsolutePath);
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.Equal([keptId], await db.Threads.Where(thread => thread.PasteId == pasteId).Select(thread => thread.Id).ToListAsync(Ct));
+        Assert.Equal(["kept"], await db.Entries.Where(entry => entry.ThreadId == deletedId || entry.ThreadId == keptId).Select(entry => entry.Content).ToListAsync(Ct));
+        Assert.Equal(2, await db.ShareLinks.CountAsync(link => link.PasteId == pasteId, Ct));
+        Assert.False(await db.ShareLinks.AnyAsync(link => link.ThreadId == deletedId, Ct));
+    }
+
+    [Fact]
+    public async Task DeleteThread_ByAnotherUser_KeepsThread()
+    {
+        var (_, ownerId) = await RegisterAsync();
+        var (other, _) = await RegisterAsync();
+        var pasteId = await SeedPasteAsync(ownerId, "not yours");
+        var threadId = await SeedThreadAsync(pasteId);
+
+        var response = await other.PostAsync(
+            $"/pastes/{pasteId}/threads/{threadId}",
+            Form(await GetAntiforgeryTokenAsync(other, "/pastes"), ("_handler", "delete-thread")),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.True(await db.Threads.AnyAsync(thread => thread.Id == threadId, Ct));
+    }
+
+    [Fact]
     public async Task DeletePaste_ByAnotherUser_KeepsPaste()
     {
         var (_, ownerId) = await RegisterAsync();
