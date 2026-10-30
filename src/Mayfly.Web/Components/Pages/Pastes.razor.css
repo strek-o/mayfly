@@ -165,16 +165,10 @@
   font-size: 0.8125rem;
 }
 
-.sharing {
-  padding: 0.875rem 1.25rem 0.25rem;
-  border-top: 1px solid var(--rule);
-  background: var(--tint);
-}
-
 .scope {
   display: inline-flex;
   gap: 2px;
-  margin-bottom: 0.75rem;
+  margin-top: 1rem;
   padding: 2px;
   border-radius: 5px;
   background: var(--soft);
@@ -192,6 +186,14 @@
 .scope a[aria-current] {
   background: var(--paper);
   color: var(--ink);
+}
+
+.share-note {
+  margin: 0.75rem 0 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--rule);
+  color: var(--mute);
+  font-size: 0.875rem;
 }
 
 .tabs {

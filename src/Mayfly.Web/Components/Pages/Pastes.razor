@@ -76,7 +76,7 @@
 
         @if (Share is not null)
         {
-            <div class="sharing">
+            <Window Title="Share" CloseHref="@ThreadHref">
                 <nav class="scope" aria-label="Share scope">
                     <a href="@($"{ThreadHref}?share=paste")" aria-current="@(ShareThread ? null : "page")">Whole paste</a>
                     @if (thread is not null)
@@ -85,8 +85,19 @@
                     }
                 </nav>
 
+                <p class="share-note">
+                    @if (ShareThread)
+                    {
+                        <text>A link shows only the thread “@thread!.Title”.</text>
+                    }
+                    else
+                    {
+                        <text>A link shows every thread in “@paste.Title”, including threads you add later.</text>
+                    }
+                </p>
+
                 <ShareLinksPanel PasteId="paste.Id" ThreadId="@(ShareThread ? thread?.Id : null)" />
-            </div>
+            </Window>
         }
 
         <nav class="tabs" aria-label="Threads">
