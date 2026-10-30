@@ -517,6 +517,44 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     }
 
     [Fact]
+    public async Task FolderLink_OpensSubfoldersOnlyInsideTheSharedFolder()
+    {
+        var (_, ownerId) = await RegisterAsync();
+        var sharedId = await SeedFolderAsync(ownerId);
+        var childId = await SeedFolderAsync(ownerId, sharedId);
+        var asideId = await SeedFolderAsync(ownerId);
+        var now = DateTimeOffset.UtcNow;
+        var (nested, _) = await SeedFileAsync(ownerId, now, uploaded: true, fileName: "nested.txt", folderId: childId);
+        var (aside, _) = await SeedFileAsync(ownerId, now, uploaded: true, fileName: "aside.txt", folderId: asideId);
+        var token = await SeedFolderLinkAsync(sharedId);
+        var visitor = CreateClient();
+        await visitor.PostAsync(
+            $"/s/{token}",
+            Form(await GetAntiforgeryTokenAsync(visitor, $"/s/{token}"), ("_handler", "reveal")),
+            Ct);
+
+        var root = await visitor.GetStringAsync($"/s/{token}", Ct);
+        Assert.Contains($"?folder={childId}", root);
+        Assert.DoesNotContain("nested.txt", root);
+
+        var child = await visitor.GetStringAsync($"/s/{token}?folder={childId}", Ct);
+        Assert.Contains("nested.txt", child);
+        Assert.Contains($"?folder={sharedId}", child);
+
+        var outside = await visitor.GetStringAsync($"/s/{token}?folder={asideId}", Ct);
+        Assert.DoesNotContain("aside.txt", outside);
+        Assert.Contains($"?folder={childId}", outside);
+
+        var antiforgery = AntiforgeryField.Match(child).Groups[1].Value;
+        var nestedDownload = await visitor.PostAsync($"/s/{token}/download", Form(antiforgery, ("FileId", nested.Id.ToString())), Ct);
+        var asideDownload = await visitor.PostAsync($"/s/{token}/download", Form(antiforgery, ("FileId", aside.Id.ToString())), Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, nestedDownload.StatusCode);
+        Assert.Contains(nested.BlobName, nestedDownload.Headers.Location!.ToString());
+        Assert.Equal(HttpStatusCode.NotFound, asideDownload.StatusCode);
+    }
+
+    [Fact]
     public async Task GuestEntry_LandsInTheChosenThread()
     {
         var (_, ownerId) = await RegisterAsync();

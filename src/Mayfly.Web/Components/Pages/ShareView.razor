@@ -12,7 +12,7 @@
 @inject ShareSession Session
 @inject NavigationManager Navigation
 
-<PageTitle>@(content?.Title ?? sharedFolder?.Name ?? sharedFile?.FileName ?? "Shared with you")</PageTitle>
+<PageTitle>@(content?.Title ?? sharedFolder?.Current.Name ?? sharedFile?.FileName ?? "Shared with you")</PageTitle>
 
 <HeadContent>
     <meta name="robots" content="noindex" />
@@ -22,6 +22,10 @@
     <symbol id="file-glyph" viewBox="0 0 46 56">
         <path d="M1.5 1.5h30l13 13v40h-43z" fill="#fff" stroke="#d8d0ea" />
         <path d="M31.5 1.5v13h13" fill="#efeaf8" stroke="#d8d0ea" />
+    </symbol>
+    <symbol id="folder-glyph" viewBox="0 0 56 46">
+        <path d="M1 6a4 4 0 0 1 4-4h15l6 6h25a4 4 0 0 1 4 4v29a4 4 0 0 1-4 4H5a4 4 0 0 1-4-4z" fill="#b8a9e8" />
+        <path d="M1 14h54v27a4 4 0 0 1-4 4H5a4 4 0 0 1-4-4z" fill="#e4dcfb" />
     </symbol>
 </svg>
 
@@ -72,6 +76,8 @@
 }
 else if (sharedFolder is not null)
 {
+    var count = sharedFolder.Children.Count + sharedFolder.Files.Count;
+
     <header class="guest-bar">
         <a class="brand" href="">Mayfly</a>
         <span>Shared with you</span>
@@ -79,11 +85,15 @@ else if (sharedFolder is not null)
 
     <main class="folder panel">
         <header>
-            <h1>@sharedFolder.Name</h1>
-            <span>@sharedFolder.Files.Count @(sharedFolder.Files.Count == 1 ? "file" : "files")</span>
+            @foreach (var ancestor in sharedFolder.Path)
+            {
+                <a class="crumb" href="@($"s/{Token}?folder={ancestor.Id}")">@ancestor.Name</a>
+            }
+            <h1>@sharedFolder.Current.Name</h1>
+            <span>@count @(count == 1 ? "item" : "items")</span>
         </header>
 
-        @if (sharedFolder.Files.Count == 0)
+        @if (count == 0)
         {
             <p class="empty">This folder is empty.</p>
         }
@@ -93,6 +103,19 @@ else if (sharedFolder is not null)
                 <AntiforgeryToken />
 
                 <ul class="files">
+                    @foreach (var child in sharedFolder.Children)
+                    {
+                        <li>
+                            <a class="open" href="@($"s/{Token}?folder={child.Id}")">
+                                <span class="glyph"><svg aria-hidden="true"><use href="#folder-glyph" /></svg></span>
+                                <span class="text">
+                                    <span class="name">@child.Name</span>
+                                    <span class="meta">Folder</span>
+                                </span>
+                            </a>
+                        </li>
+                    }
+
                     @foreach (var file in sharedFolder.Files)
                     {
                         <li class="@(TimeLeft.IsSoon(file.ExpiresAt, now) ? "soon" : null)" data-expires="@Utc(file.ExpiresAt)">
@@ -211,6 +234,9 @@ else if (link is not null)
     [SupplyParameterFromQuery(Name = "thread")]
     public Guid? ThreadId { get; set; }
 
+    [SupplyParameterFromQuery(Name = "folder")]
+    public Guid? FolderId { get; set; }
+
     [SupplyParameterFromForm(FormName = "reveal")]
     private string? Password { get; set; }
 
@@ -254,10 +280,14 @@ else if (link is not null)
                 }
                 else if (link.FolderId is { } folderId)
                 {
+                    var tree = await db.Folders.LoadTreeAsync(folderId);
+                    var current = tree.Find(folder => folder.Id == FolderId) ?? tree[0];
                     sharedFolder = new SharedFolder(
-                        await db.Folders.Where(folder => folder.Id == folderId).Select(folder => folder.Name).SingleAsync(),
+                        current,
+                        tree.Ancestors(current),
+                        tree.Where(folder => folder.ParentId == current.Id).OrderBy(folder => folder.Name).ToList(),
                         await db.Files
-                            .Where(file => file.FolderId == folderId && file.UploadedAt != null)
+                            .Where(file => file.FolderId == current.Id && file.UploadedAt != null)
                             .WhereNotExpired(now)
                             .OrderBy(file => file.FileName)
                             .Select(file => new SharedFolderFile(file.Id, file.FileName, file.Size, file.ExpiresAt))
@@ -346,7 +376,7 @@ else if (link is not null)
 
     private sealed record SharedFile(string FileName, long Size, DateTimeOffset? ExpiresAt);
 
-    private sealed record SharedFolder(string Name, List<SharedFolderFile> Files);
+    private sealed record SharedFolder(Folder Current, List<Folder> Path, List<Folder> Children, List<SharedFolderFile> Files);
 
     private sealed record SharedFolderFile(Guid Id, string FileName, long Size, DateTimeOffset? ExpiresAt);
 }

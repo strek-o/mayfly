@@ -46,13 +46,16 @@ public static class SharedFileDownloadEndpoint
         var form = await context.Request.ReadFormAsync(cancellationToken);
         Guid? requestedFileId = Guid.TryParse(form["FileId"], out var parsed) ? parsed : null;
 
+        var folderIds = link?.FolderId is { } sharedFolderId
+            ? (await db.Folders.LoadTreeAsync(sharedFolderId, cancellationToken)).Select(folder => folder.Id).ToList()
+            : [];
         var liveFiles = db.Files.AsNoTracking().Where(f => f.UploadedAt != null).WhereNotExpired(now);
         var file = link switch
         {
             null => null,
             { FileId: { } fileId } => await liveFiles.SingleOrDefaultAsync(f => f.Id == fileId, cancellationToken),
             _ => await liveFiles.SingleOrDefaultAsync(
-                f => f.Id == requestedFileId && f.FolderId == link.FolderId,
+                f => f.Id == requestedFileId && f.FolderId != null && folderIds.Contains(f.FolderId.Value),
                 cancellationToken)
         };
 

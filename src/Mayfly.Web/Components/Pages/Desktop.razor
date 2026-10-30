@@ -85,8 +85,8 @@ else if (folder is not null && Share)
 {
     <Window Title="@folder.Name" CloseHref="@ViewHref">
         <p class="folder-note">
-            @files.Count @(files.Count == 1 ? "file" : "files"). A link shows visitors every file in this folder,
-            including files you add later.
+            @(folders.Count + files.Count) @(folders.Count + files.Count == 1 ? "item" : "items"). A link shows visitors
+            everything in this folder, including subfolders and anything you add later.
         </p>
 
         <ShareLinksPanel FolderId="folder.Id" />
