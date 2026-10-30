@@ -1,8 +1,8 @@
 @page "/s/{Token}"
+@layout BareLayout
 @using Mayfly.Core.Data
 @using Mayfly.Core.Time
 @using Mayfly.Web.Files
-@using Mayfly.Web.Pastes
 @using Mayfly.Web.Time
 @using Mayfly.Web.Sharing
 @using Microsoft.AspNetCore.RateLimiting
@@ -12,149 +12,190 @@
 @inject ShareSession Session
 @inject NavigationManager Navigation
 
-<PageTitle>Shared content</PageTitle>
+<PageTitle>@(content?.Title ?? sharedFolder?.Name ?? sharedFile?.FileName ?? "Shared with you")</PageTitle>
 
 <HeadContent>
     <meta name="robots" content="noindex" />
 </HeadContent>
 
+<svg class="visually-hidden" aria-hidden="true">
+    <symbol id="file-glyph" viewBox="0 0 46 56">
+        <path d="M1.5 1.5h30l13 13v40h-43z" fill="#fff" stroke="#d8d0ea" />
+        <path d="M31.5 1.5v13h13" fill="#efeaf8" stroke="#d8d0ea" />
+    </symbol>
+</svg>
+
 @if (content is not null)
 {
-    <h1>@content.Title</h1>
+    var current = content.Threads.FirstOrDefault(thread => thread.Id == ThreadId) ?? content.Threads.FirstOrDefault();
 
-    @foreach (var thread in content.Threads)
-    {
-        <section>
-            <h2>@thread.Title</h2>
+    <header class="guest-bar">
+        <a class="brand" href="">Mayfly</a>
+        <span>Shared with you</span>
+    </header>
 
-            @if (thread.Entries.Count == 0)
+    <main class="paste panel" data-expires="@Utc(content.ExpiresAt)">
+        <header>
+            <h1>@content.Title</h1>
+            @Stamp(content.ExpiresAt)
+        </header>
+
+        <nav class="tabs" aria-label="Threads">
+            @foreach (var thread in content.Threads)
             {
-                <p>No entries yet.</p>
+                <a href="@($"s/{Token}?thread={thread.Id}")" aria-current="@(thread == current ? "page" : null)">@thread.Title</a>
             }
+        </nav>
 
-            @foreach (var entry in thread.Entries)
-            {
-                <article id="entry-@entry.Id">
-                    <div class="markdown">@EntryMarkdown.ToHtml(entry.Content)</div>
-                    <small>@(entry.AuthorName ?? "Owner") ·
-                        <LocalTime Value="entry.CreatedAt" />
-                    </small>
-                </article>
-            }
-        </section>
-    }
+        @if (current is null || current.Entries.Count == 0)
+        {
+            <p class="empty">@(link!.CanAppend && current is not null ? "No entries yet. Write the first one below." : "No entries yet.")</p>
+        }
+        else
+        {
+            <EntryList Entries="current.Entries" OwnerName="Owner" />
+        }
 
-    @if (link!.CanAppend && content.Threads.Count > 0)
-    {
-        <form method="post" action="@($"s/{Token}/entries")">
-            <AntiforgeryToken />
+        @if (link!.CanAppend && current is not null)
+        {
+            <form method="post" action="@($"s/{Token}/entries")" class="composer">
+                <AntiforgeryToken />
+                <input type="hidden" name="ThreadId" value="@current.Id" />
 
-            <h2>Add an entry</h2>
-
-            @if (content.Threads.Count == 1)
-            {
-                <input type="hidden" name="ThreadId" value="@content.Threads[0].Id" />
-            }
-            else
-            {
-                <label>
-                    Thread
-                    <select name="ThreadId">
-                        @foreach (var thread in content.Threads)
-                        {
-                            <option value="@thread.Id">@thread.Title</option>
-                        }
-                    </select>
-                </label>
-            }
-
-            <label>
-                Your name (optional)
-                <input name="AuthorName" maxlength="@GuestEntryEndpoint.MaxAuthorNameLength" />
-            </label>
-
-            <label>
-                Entry
-                <textarea name="Content" rows="8" required maxlength="@GuestEntryEndpoint.MaxContentLength"></textarea>
-            </label>
-
-            <button type="submit">Add entry</button>
-        </form>
-    }
+                <EntryEditor Name="Content">
+                    <input class="author" name="AuthorName" maxlength="@GuestEntryEndpoint.MaxAuthorNameLength"
+                           placeholder="Your name (optional)" aria-label="Your name" autocomplete="name" />
+                </EntryEditor>
+            </form>
+        }
+    </main>
 }
 else if (sharedFolder is not null)
 {
-    <h1>@sharedFolder.Name</h1>
+    <header class="guest-bar">
+        <a class="brand" href="">Mayfly</a>
+        <span>Shared with you</span>
+    </header>
 
-    @if (sharedFolder.Files.Count == 0)
-    {
-        <p>This folder is empty.</p>
-    }
-    else
-    {
-        <form method="post" action="@($"s/{Token}/download")">
-            <AntiforgeryToken />
+    <main class="folder panel">
+        <header>
+            <h1>@sharedFolder.Name</h1>
+            <span>@sharedFolder.Files.Count @(sharedFolder.Files.Count == 1 ? "file" : "files")</span>
+        </header>
 
-            <ul>
-                @foreach (var file in sharedFolder.Files)
-                {
-                    <li>
-                        @file.FileName · @FileSize.Format(file.Size)
-                        <button type="submit" name="FileId" value="@file.Id">Download</button>
-                    </li>
-                }
-            </ul>
-        </form>
-    }
+        @if (sharedFolder.Files.Count == 0)
+        {
+            <p class="empty">This folder is empty.</p>
+        }
+        else
+        {
+            <form method="post" action="@($"s/{Token}/download")">
+                <AntiforgeryToken />
+
+                <ul class="files">
+                    @foreach (var file in sharedFolder.Files)
+                    {
+                        <li class="@(TimeLeft.IsSoon(file.ExpiresAt, now) ? "soon" : null)" data-expires="@Utc(file.ExpiresAt)">
+                            <span class="glyph"><svg aria-hidden="true"><use href="#file-glyph" /></svg></span>
+                            <span class="text">
+                                <span class="name">@file.FileName</span>
+                                <span class="meta">
+                                    @FileSize.Format(file.Size) ·
+                                    @if (file.ExpiresAt is { } expiresAt)
+                                    {
+                                        <span data-time-left>@TimeLeft.Format(expiresAt, now)</span><text> left</text>
+                                    }
+                                    else
+                                    {
+                                        <text>stays</text>
+                                    }
+                                </span>
+                            </span>
+                            <button type="submit" class="button-quiet" name="FileId" value="@file.Id">Download</button>
+                        </li>
+                    }
+                </ul>
+            </form>
+        }
+    </main>
 }
 else if (sharedFile is not null)
 {
-    <h1>@sharedFile.FileName</h1>
+    var extension = Path.GetExtension(sharedFile.FileName).TrimStart('.').ToUpperInvariant();
 
-    <p>@FileSize.Format(sharedFile.Size)</p>
+    <div class="guest-center">
+        <a class="brand" href="">Mayfly</a>
 
-    <form method="post" action="@($"s/{Token}/download")">
-        <AntiforgeryToken />
-        <button type="submit">Download</button>
-    </form>
+        <section class="panel card" data-expires="@Utc(sharedFile.ExpiresAt)">
+            <span class="glyph">
+                <svg aria-hidden="true"><use href="#file-glyph" /></svg>
+                @if (extension is { Length: > 0 and <= 4 })
+                {
+                    <b>@extension</b>
+                }
+            </span>
+
+            <h1>@sharedFile.FileName</h1>
+            @Stamp(sharedFile.ExpiresAt)
+
+            <dl>
+                <dt>Size</dt>
+                <dd>@FileSize.Format(sharedFile.Size)</dd>
+                <dt>Type</dt>
+                <dd>@(extension.Length > 0 ? $"{extension} file" : "File")</dd>
+            </dl>
+
+            <form method="post" action="@($"s/{Token}/download")">
+                <AntiforgeryToken />
+                <button type="submit">Download</button>
+            </form>
+        </section>
+    </div>
 }
 else if (link is not null)
 {
-    <h1>Shared content</h1>
+    <div class="guest-center">
+        <a class="brand" href="">Mayfly</a>
 
-    @if (SessionStatus == "expired")
-    {
-        <p>Your session has expired. Open the content again to continue.</p>
-    }
-
-    @if (link.MaxViews is { } maxViews)
-    {
-        var remaining = maxViews - link.ViewCount;
-        <p>
-            @(remaining == 1
-                ? "This link works only once. After you open it, nobody else can."
-                : $"This link can be opened {remaining} more times.")
-        </p>
-    }
-
-    <form method="post" @formname="reveal" @onsubmit="RevealAsync">
-        <AntiforgeryToken />
-
-        @if (link.PasswordHash is not null)
-        {
-            @if (passwordRejected)
+        <section class="panel card">
+            @if (link.MaxViews is { } maxViews)
             {
-                <p>Wrong password.</p>
+                var remaining = maxViews - link.ViewCount;
+                <span class="stamp @(remaining == 1 ? "stamp-soon" : null)">@remaining @(remaining == 1 ? "view" : "views") left</span>
             }
 
-            <label>
-                Password
-                <input type="password" name="Password" autocomplete="off" />
-            </label>
-        }
+            <h1>Someone shared a @Kind with you</h1>
 
-        <button type="submit">Show content</button>
-    </form>
+            @if (link.MaxViews - link.ViewCount == 1)
+            {
+                <p>This link works only once. After you open it, nobody else can.</p>
+            }
+
+            @if (SessionStatus == "expired")
+            {
+                <p class="form-error" role="alert">Your session has expired. Open the @Kind again to continue.</p>
+            }
+
+            <form method="post" @formname="reveal" @onsubmit="RevealAsync">
+                <AntiforgeryToken />
+
+                @if (link.PasswordHash is not null)
+                {
+                    <label>
+                        Password
+                        <input type="password" name="Password" autocomplete="off" />
+                    </label>
+
+                    @if (passwordRejected)
+                    {
+                        <p class="form-error" role="alert">Wrong password.</p>
+                    }
+                }
+
+                <button type="submit">Open @Kind</button>
+            </form>
+        </section>
+    </div>
 }
 
 @code {
@@ -166,6 +207,9 @@ else if (link is not null)
 
     [SupplyParameterFromQuery(Name = "session")]
     public string? SessionStatus { get; set; }
+
+    [SupplyParameterFromQuery(Name = "thread")]
+    public Guid? ThreadId { get; set; }
 
     [SupplyParameterFromForm(FormName = "reveal")]
     private string? Password { get; set; }
@@ -180,12 +224,15 @@ else if (link is not null)
 
     private bool passwordRejected;
 
+    private readonly DateTimeOffset now = DateTimeOffset.UtcNow;
+
+    private string Kind => link?.FileId is not null ? "file" : link?.FolderId is not null ? "folder" : "paste";
+
     protected override async Task OnInitializedAsync()
     {
         if (ShareToken.IsWellFormed(Token))
         {
             var tokenHash = ShareToken.Hash(Token);
-            var now = DateTimeOffset.UtcNow;
 
             await using var db = await DbFactory.CreateDbContextAsync();
             link = await db.ShareLinks
@@ -202,7 +249,7 @@ else if (link is not null)
                 {
                     sharedFile = await db.Files
                         .Where(file => file.Id == fileId)
-                        .Select(file => new SharedFile(file.FileName, file.Size))
+                        .Select(file => new SharedFile(file.FileName, file.Size, file.ExpiresAt))
                         .SingleAsync();
                 }
                 else if (link.FolderId is { } folderId)
@@ -213,7 +260,7 @@ else if (link is not null)
                             .Where(file => file.FolderId == folderId && file.UploadedAt != null)
                             .WhereNotExpired(now)
                             .OrderBy(file => file.FileName)
-                            .Select(file => new SharedFolderFile(file.Id, file.FileName, file.Size))
+                            .Select(file => new SharedFolderFile(file.Id, file.FileName, file.Size, file.ExpiresAt))
                             .ToListAsync());
                 }
                 else
@@ -250,13 +297,13 @@ else if (link is not null)
         }
 
         var linkId = link.Id;
-        var now = DateTimeOffset.UtcNow;
+        var revealedAt = DateTimeOffset.UtcNow;
 
         await using var db = await DbFactory.CreateDbContextAsync();
         var consumed = await db.ShareLinks
             .Where(l => l.Id == linkId)
-            .WhereActive(now)
-            .WhereTargetAvailable(db, now)
+            .WhereActive(revealedAt)
+            .WhereTargetAvailable(db, revealedAt)
             .ExecuteUpdateAsync(setters => setters.SetProperty(l => l.ViewCount, l => l.ViewCount + 1));
 
         if (consumed == 0)
@@ -270,14 +317,19 @@ else if (link is not null)
         Navigation.NavigateTo($"s/{Token}");
     }
 
+    private RenderFragment Stamp(DateTimeOffset? expiresAt) =>
+        @<span class="stamp @(TimeLeft.IsSoon(expiresAt, now) ? "stamp-soon" : null)" data-time-left-stamp>@(expiresAt is { } value ? $"{TimeLeft.Format(value, now)} left" : "No expiry")</span>;
+
+    private static string? Utc(DateTimeOffset? value) => value?.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
+
     private static async Task<SharedContent> LoadContentAsync(MayflyDbContext db, ShareLink link)
     {
         var pasteId = link.PasteId;
         var threadId = link.ThreadId;
 
-        var title = await db.Pastes
+        var paste = await db.Pastes
             .Where(paste => paste.Id == pasteId)
-            .Select(paste => paste.Title)
+            .Select(paste => new { paste.Title, paste.ExpiresAt })
             .SingleAsync();
 
         var threads = await db.Threads
@@ -287,14 +339,14 @@ else if (link is not null)
             .OrderBy(thread => thread.CreatedAt)
             .ToListAsync();
 
-        return new SharedContent(title, threads);
+        return new SharedContent(paste.Title, paste.ExpiresAt, threads);
     }
 
-    private sealed record SharedContent(string Title, List<PasteThread> Threads);
+    private sealed record SharedContent(string Title, DateTimeOffset? ExpiresAt, List<PasteThread> Threads);
 
-    private sealed record SharedFile(string FileName, long Size);
+    private sealed record SharedFile(string FileName, long Size, DateTimeOffset? ExpiresAt);
 
     private sealed record SharedFolder(string Name, List<SharedFolderFile> Files);
 
-    private sealed record SharedFolderFile(Guid Id, string FileName, long Size);
+    private sealed record SharedFolderFile(Guid Id, string FileName, long Size, DateTimeOffset? ExpiresAt);
 }

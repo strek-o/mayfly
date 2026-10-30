@@ -18,6 +18,8 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
 
     private static readonly Regex AntiforgeryField = new("name=\"__RequestVerificationToken\" value=\"([^\"]+)\"");
 
+    private static int clientCount;
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
@@ -384,6 +386,38 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     }
 
     [Fact]
+    public async Task GuestEntry_LandsInTheChosenThread()
+    {
+        var (_, ownerId) = await RegisterAsync();
+        var pasteId = await SeedPasteAsync(ownerId, "open notes");
+        await SeedThreadAsync(pasteId);
+        var secondId = await SeedThreadAsync(pasteId);
+        var token = await SeedShareLinkAsync(pasteId, maxViews: null, canAppend: true);
+        var visitor = CreateClient();
+        await visitor.PostAsync(
+            $"/s/{token}",
+            Form(await GetAntiforgeryTokenAsync(visitor, $"/s/{token}"), ("_handler", "reveal")),
+            Ct);
+        var secondThreadUrl = $"/s/{token}?thread={secondId}";
+
+        var response = await visitor.PostAsync(
+            $"/s/{token}/entries",
+            Form(
+                await GetAntiforgeryTokenAsync(visitor, secondThreadUrl),
+                ("ThreadId", secondId.ToString()),
+                ("Content", "**hello** from a guest"),
+                ("AuthorName", "Marta")),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.StartsWith($"{secondThreadUrl}#entry-", response.Headers.Location?.OriginalString);
+        var secondThread = await visitor.GetStringAsync(secondThreadUrl, Ct);
+        Assert.Contains("<strong>hello</strong> from a guest", secondThread);
+        Assert.Contains("Marta", secondThread);
+        Assert.DoesNotContain("from a guest", await visitor.GetStringAsync($"/s/{token}", Ct));
+    }
+
+    [Fact]
     public async Task MoveFile_IntoOwnFolderAndBackToTheDesktop()
     {
         var (owner, ownerId) = await RegisterAsync();
@@ -530,8 +564,13 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         }
     }
 
-    private HttpClient CreateClient() =>
-        database.Factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+    private HttpClient CreateClient()
+    {
+        var client = database.Factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var number = Interlocked.Increment(ref clientCount);
+        client.DefaultRequestHeaders.Add("X-Forwarded-For", $"198.18.{number / 256}.{number % 256}");
+        return client;
+    }
 
     private async Task<(HttpClient Client, string UserId)> RegisterAsync()
     {
@@ -644,7 +683,7 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         return token;
     }
 
-    private async Task<string> SeedShareLinkAsync(Guid pasteId, int? maxViews, Guid? threadId = null)
+    private async Task<string> SeedShareLinkAsync(Guid pasteId, int? maxViews, Guid? threadId = null, bool canAppend = false)
     {
         var token = ShareToken.Generate();
 
@@ -654,6 +693,7 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
             PasteId = pasteId,
             ThreadId = threadId,
             TokenHash = ShareToken.Hash(token),
+            CanAppend = canAppend,
             CreatedAt = DateTimeOffset.UtcNow,
             MaxViews = maxViews
         });

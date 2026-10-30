@@ -284,10 +284,16 @@ document.addEventListener("input", (event) => {
 
 document.addEventListener("submit", (event) => {
   const editor = event.target.querySelector?.("[data-editor]");
-  if (editor) {
-    event.target.querySelector("textarea").value = editorMarkdown(
-      editor,
-    ).replace(/^\n+|\s+$/g, "");
+  if (!editor) {
+    return;
+  }
+
+  const content = editorMarkdown(editor).replace(/^\n+|\s+$/g, "");
+  if (content) {
+    event.target.querySelector("textarea").value = content;
+  } else {
+    event.preventDefault();
+    editor.focus();
   }
 });
 

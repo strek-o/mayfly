@@ -80,7 +80,7 @@ public static class GuestEntryEndpoint
         await db.SaveChangesAsync();
 
         session.Start(context, link.Id, token);
-        return Results.LocalRedirect($"/s/{token}#entry-{entry.Id}");
+        return Results.LocalRedirect($"/s/{token}?thread={entry.ThreadId}#entry-{entry.Id}");
     }
 
     public sealed class GuestEntryForm

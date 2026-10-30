@@ -1,0 +1,218 @@
+.brand {
+  color: var(--ink);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.guest-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  height: 2.75rem;
+  padding: 0 1.125rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+.guest-bar span {
+  color: var(--mute);
+  font-size: 0.8125rem;
+}
+
+.guest-center {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 4.5rem 1rem 1.5rem;
+}
+
+.guest-center > .brand {
+  position: absolute;
+  top: 1.5rem;
+  left: 2rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.card {
+  width: min(26rem, 100%);
+  padding: 2rem;
+}
+
+.card h1 {
+  margin: 0.875rem 0 0.5rem;
+  font-size: 1.5rem;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.card > :first-child {
+  margin-top: 0;
+}
+
+.card p:not(.form-error) {
+  color: var(--mute);
+}
+
+.card form {
+  margin-top: 1.25rem;
+}
+
+.card button {
+  width: 100%;
+}
+
+.card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.4rem 1rem;
+  margin: 1rem 0 0;
+  font-size: 0.875rem;
+}
+
+.card dt {
+  color: var(--mute);
+}
+
+.card dd {
+  margin: 0;
+}
+
+.glyph {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 2.875rem;
+  height: 3.5rem;
+}
+
+.glyph svg {
+  width: 100%;
+  height: 100%;
+}
+
+.glyph b {
+  position: absolute;
+  bottom: 0.55rem;
+  left: -0.3rem;
+  padding: 0.2rem 0.25rem;
+  border-radius: 2px;
+  background: var(--accent);
+  color: var(--paper);
+  font: 700 0.6875rem/1 var(--font-ui);
+  letter-spacing: 0.04em;
+}
+
+.author {
+  width: min(14rem, 100%);
+  min-height: 2.25rem;
+  margin-right: auto;
+  font-size: 0.875rem;
+}
+
+.folder {
+  width: min(47.5rem, calc(100% - 2rem));
+  margin: 1rem auto;
+}
+
+.folder > header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.folder h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  overflow-wrap: anywhere;
+}
+
+.folder > header span,
+.folder > .empty {
+  color: var(--mute);
+  font-size: 0.875rem;
+}
+
+.folder > .empty {
+  margin: 0;
+  padding: 1rem 1.25rem;
+}
+
+.folder form {
+  margin: 0;
+}
+
+.files {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.files li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 1.25rem;
+  border-bottom: 1px solid var(--rule);
+  transition: opacity 600ms ease-out;
+}
+
+.files li:last-child {
+  border-bottom: 0;
+}
+
+.files li.gone {
+  opacity: 0;
+}
+
+.files .glyph {
+  width: 1.625rem;
+  height: 2rem;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  display: block;
+  overflow: hidden;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  display: block;
+  color: var(--mute);
+  font-size: 0.75rem;
+}
+
+.soon .meta {
+  color: var(--soon);
+  font-weight: 600;
+}
+
+.files button {
+  min-height: 2rem;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 640px) {
+  .guest-center > .brand {
+    left: 1rem;
+  }
+
+  .folder {
+    width: 100%;
+    margin: 0;
+    border-radius: 0;
+  }
+}
