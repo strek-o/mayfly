@@ -112,7 +112,7 @@ else
 {
     <nav class="path" aria-label="Location">
         <a class="crumb" href="desktop" data-folder-target="">Desktop</a>
-        @foreach (var ancestor in Ancestors(folder))
+        @foreach (var ancestor in allFolders.Ancestors(folder))
         {
             <a class="crumb" href="desktop/folders/@ancestor.Id" data-folder-target="@ancestor.Id">@ancestor.Name</a>
         }
@@ -282,7 +282,7 @@ else
 
     private List<(Guid Id, string Path)> FolderPaths =>
         allFolders
-            .Select(f => (f.Id, string.Join(" / ", Ancestors(f).Append(f).Select(a => a.Name))))
+            .Select(f => (f.Id, string.Join(" / ", allFolders.Ancestors(f).Append(f).Select(a => a.Name))))
             .OrderBy(f => f.Item2, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
 
@@ -392,11 +392,7 @@ else
             return;
         }
 
-        var ids = new List<Guid> { target.Id };
-        for (var i = 0; i < ids.Count; i++)
-        {
-            ids.AddRange(allFolders.Where(f => f.ParentId == ids[i]).Select(f => f.Id));
-        }
+        var ids = allFolders.Subtree(target.Id).Select(f => f.Id).ToList();
 
         await using var db = await DbFactory.CreateDbContextAsync();
         await db.Files
@@ -406,19 +402,6 @@ else
         await db.Folders.Where(f => ids.Contains(f.Id) && f.OwnerId == ownerId).ExecuteDeleteAsync();
 
         Navigation.NavigateTo(FolderId is { } current && ids.Contains(current) ? FolderHref(target.ParentId) : ViewHref);
-    }
-
-    private List<Folder> Ancestors(Folder child)
-    {
-        var chain = new List<Folder>();
-        var parent = allFolders.SingleOrDefault(f => f.Id == child.ParentId);
-        while (parent is not null)
-        {
-            chain.Insert(0, parent);
-            parent = allFolders.SingleOrDefault(f => f.Id == parent.ParentId);
-        }
-
-        return chain;
     }
 
     private static string FolderHref(Guid? folderId) => folderId is { } id ? $"desktop/folders/{id}" : "desktop";
