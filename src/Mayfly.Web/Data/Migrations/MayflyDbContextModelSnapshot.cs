@@ -234,6 +234,9 @@ namespace Mayfly.Web.Data.Migrations
                     b.Property<Guid?>("FileId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("FolderId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int?>("MaxViews")
                         .HasColumnType("int");
 
@@ -265,6 +268,8 @@ namespace Mayfly.Web.Data.Migrations
 
                     b.HasIndex("FileId");
 
+                    b.HasIndex("FolderId");
+
                     b.HasIndex("PasteId");
 
                     b.HasIndex("ThreadId");
@@ -276,7 +281,7 @@ namespace Mayfly.Web.Data.Migrations
                         {
                             t.HasCheckConstraint("CK_ShareLinks_MaxViews", "[MaxViews] IS NULL OR [MaxViews] > 0");
 
-                            t.HasCheckConstraint("CK_ShareLinks_Target", "([PasteId] IS NOT NULL AND [FileId] IS NULL) OR ([PasteId] IS NULL AND [FileId] IS NOT NULL)");
+                            t.HasCheckConstraint("CK_ShareLinks_Target", "([PasteId] IS NOT NULL AND [FileId] IS NULL AND [FolderId] IS NULL) OR ([PasteId] IS NULL AND [FileId] IS NOT NULL AND [FolderId] IS NULL) OR ([PasteId] IS NULL AND [FileId] IS NULL AND [FolderId] IS NOT NULL)");
 
                             t.HasCheckConstraint("CK_ShareLinks_Thread", "[ThreadId] IS NULL OR [PasteId] IS NOT NULL");
                         });
@@ -528,6 +533,11 @@ namespace Mayfly.Web.Data.Migrations
                     b.HasOne("Mayfly.Core.Data.FileItem", null)
                         .WithMany()
                         .HasForeignKey("FileId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("Mayfly.Core.Data.Folder", null)
+                        .WithMany()
+                        .HasForeignKey("FolderId")
                         .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("Mayfly.Core.Data.Paste", null)

@@ -39,17 +39,22 @@ public static class SharedFileDownloadEndpoint
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
         var link = await db.ShareLinks
             .AsNoTracking()
-            .Where(l => l.TokenHash == tokenHash && l.FileId != null)
+            .Where(l => l.TokenHash == tokenHash && (l.FileId != null || l.FolderId != null))
             .WhereOpen(now)
             .SingleOrDefaultAsync(cancellationToken);
 
-        var file = link is null
-            ? null
-            : await db.Files
-                .AsNoTracking()
-                .Where(f => f.Id == link.FileId && f.UploadedAt != null)
-                .WhereNotExpired(now)
-                .SingleOrDefaultAsync(cancellationToken);
+        var form = await context.Request.ReadFormAsync(cancellationToken);
+        Guid? requestedFileId = Guid.TryParse(form["FileId"], out var parsed) ? parsed : null;
+
+        var liveFiles = db.Files.AsNoTracking().Where(f => f.UploadedAt != null).WhereNotExpired(now);
+        var file = link switch
+        {
+            null => null,
+            { FileId: { } fileId } => await liveFiles.SingleOrDefaultAsync(f => f.Id == fileId, cancellationToken),
+            _ => await liveFiles.SingleOrDefaultAsync(
+                f => f.Id == requestedFileId && f.FolderId == link.FolderId,
+                cancellationToken)
+        };
 
         if (link is null || file is null)
         {

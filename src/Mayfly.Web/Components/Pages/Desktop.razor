@@ -80,13 +80,24 @@
     </details>
 </SectionContent>
 
-@if (openFile is null)
+@if (openFile is not null)
 {
-    <h1 class="visually-hidden">@(folder?.Name ?? "Desktop")</h1>
+    <FileWindow File="openFile" Now="now" CloseHref="@ViewHref" Folders="allFolders" />
+}
+else if (folder is not null && Share)
+{
+    <Window Title="@folder.Name" CloseHref="@ViewHref">
+        <p class="folder-note">
+            @files.Count @(files.Count == 1 ? "file" : "files"). A link shows visitors every file in this folder,
+            including files you add later.
+        </p>
+
+        <ShareLinksPanel FolderId="folder.Id" />
+    </Window>
 }
 else
 {
-    <FileWindow File="openFile" Now="now" CloseHref="@ViewHref" Folders="allFolders" />
+    <h1 class="visually-hidden">@(folder?.Name ?? "Desktop")</h1>
 }
 
 <svg class="visually-hidden" aria-hidden="true">
@@ -103,8 +114,9 @@ else
 @if (folder is not null)
 {
     <nav class="path" aria-label="Location">
-        <a href="desktop" data-folder-target="">Desktop</a>
+        <a class="crumb" href="desktop" data-folder-target="">Desktop</a>
         <span aria-current="page">@folder.Name</span>
+        <a class="button button-quiet" href="desktop/folders/@folder.Id?share=true">Share</a>
         <form method="post" @formname="delete-folder" @onsubmit="DeleteFolderAsync"
               data-confirm="Delete this folder with all its files and their links?">
             <AntiforgeryToken />
@@ -205,6 +217,9 @@ else
 
     [Parameter]
     public Guid? FileId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "share")]
+    public bool Share { get; set; }
 
     [CascadingParameter]
     private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
@@ -323,6 +338,7 @@ else
         await db.Files
             .Where(file => file.FolderId == folder.Id && file.OwnerId == ownerId)
             .DeleteWithBlobsAsync(db, Storage);
+        await db.ShareLinks.Where(link => link.FolderId == folder.Id).ExecuteDeleteAsync();
         await db.Folders.Where(f => f.Id == folder.Id && f.OwnerId == ownerId).ExecuteDeleteAsync();
 
         Navigation.NavigateTo("desktop");

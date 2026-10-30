@@ -231,6 +231,7 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         var now = DateTimeOffset.UtcNow;
         var (inside, insideBlob) = await SeedFileAsync(ownerId, now, uploaded: true, folderId: folderId);
         var (outside, outsideBlob) = await SeedFileAsync(ownerId, now, uploaded: true);
+        await SeedFolderLinkAsync(folderId);
         var url = $"/desktop/folders/{folderId}";
 
         var response = await owner.PostAsync(
@@ -243,6 +244,7 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         Assert.True(await outsideBlob.ExistsAsync(Ct));
         await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
         Assert.False(await db.Folders.AnyAsync(f => f.Id == folderId, Ct));
+        Assert.False(await db.ShareLinks.AnyAsync(link => link.FolderId == folderId, Ct));
         Assert.False(await db.Files.AnyAsync(f => f.Id == inside.Id, Ct));
         Assert.False(await db.ShareLinks.AnyAsync(link => link.FileId == inside.Id, Ct));
         Assert.True(await db.Files.AnyAsync(f => f.Id == outside.Id, Ct));
@@ -264,6 +266,55 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
         Assert.True(await db.Folders.AnyAsync(f => f.Id == folderId, Ct));
+    }
+
+    [Fact]
+    public async Task FolderWindow_CreatesFolderLink()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var folderId = await SeedFolderAsync(ownerId);
+        var url = $"/desktop/folders/{folderId}?share=true";
+
+        var response = await owner.PostAsync(
+            url,
+            Form(await GetAntiforgeryTokenAsync(owner, url),
+                ("_handler", "create-share-link"),
+                ("LinkInput.Lifetime", "OneDay")),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.True(await db.ShareLinks.AnyAsync(link => link.FolderId == folderId && link.FileId == null && link.PasteId == null, Ct));
+    }
+
+    [Fact]
+    public async Task FolderLink_ShowsAndServesOnlyFilesInTheFolder()
+    {
+        var (_, ownerId) = await RegisterAsync();
+        var folderId = await SeedFolderAsync(ownerId);
+        var now = DateTimeOffset.UtcNow;
+        var (inside, _) = await SeedFileAsync(ownerId, now, uploaded: true, fileName: "inside.txt", folderId: folderId);
+        var (outside, _) = await SeedFileAsync(ownerId, now, uploaded: true, fileName: "outside.txt");
+        var token = await SeedFolderLinkAsync(folderId);
+        var visitor = CreateClient();
+
+        var revealed = await visitor.PostAsync(
+            $"/s/{token}",
+            Form(await GetAntiforgeryTokenAsync(visitor, $"/s/{token}"), ("_handler", "reveal")),
+            Ct);
+        Assert.Equal(HttpStatusCode.Redirect, revealed.StatusCode);
+
+        var page = await visitor.GetStringAsync($"/s/{token}", Ct);
+        Assert.Contains("inside.txt", page);
+        Assert.DoesNotContain("outside.txt", page);
+
+        var antiforgery = AntiforgeryField.Match(page).Groups[1].Value;
+        var insideDownload = await visitor.PostAsync($"/s/{token}/download", Form(antiforgery, ("FileId", inside.Id.ToString())), Ct);
+        var outsideDownload = await visitor.PostAsync($"/s/{token}/download", Form(antiforgery, ("FileId", outside.Id.ToString())), Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, insideDownload.StatusCode);
+        Assert.Contains(inside.BlobName, insideDownload.Headers.Location!.ToString());
+        Assert.Equal(HttpStatusCode.NotFound, outsideDownload.StatusCode);
     }
 
     [Fact]
@@ -510,6 +561,21 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         db.Folders.Add(folder);
         await db.SaveChangesAsync(Ct);
         return folder.Id;
+    }
+
+    private async Task<string> SeedFolderLinkAsync(Guid folderId)
+    {
+        var token = ShareToken.Generate();
+
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        db.ShareLinks.Add(new ShareLink
+        {
+            FolderId = folderId,
+            TokenHash = ShareToken.Hash(token),
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+        await db.SaveChangesAsync(Ct);
+        return token;
     }
 
     private async Task<string> SeedShareLinkAsync(Guid pasteId, int? maxViews, Guid? threadId = null)

@@ -10,6 +10,8 @@ public class ShareLink
 
     public Guid? FileId { get; set; }
 
+    public Guid? FolderId { get; set; }
+
     public required byte[] TokenHash { get; set; }
 
     public string? ProtectedToken { get; set; }

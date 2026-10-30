@@ -23,6 +23,7 @@ public static class ShareLinkRules
         var liveFiles = db.Files.Where(file => file.UploadedAt != null).WhereNotExpired(now);
         return links.Where(link =>
             livePastes.Any(paste => paste.Id == link.PasteId)
-            || liveFiles.Any(file => file.Id == link.FileId));
+            || liveFiles.Any(file => file.Id == link.FileId)
+            || db.Folders.Any(folder => folder.Id == link.FolderId));
     }
 }

@@ -1,5 +1,6 @@
 @page "/s/{Token}"
 @using Mayfly.Core.Data
+@using Mayfly.Core.Time
 @using Mayfly.Web.Files
 @using Mayfly.Web.Time
 @using Mayfly.Web.Sharing
@@ -80,6 +81,31 @@
         </form>
     }
 }
+else if (sharedFolder is not null)
+{
+    <h1>@sharedFolder.Name</h1>
+
+    @if (sharedFolder.Files.Count == 0)
+    {
+        <p>This folder is empty.</p>
+    }
+    else
+    {
+        <form method="post" action="@($"s/{Token}/download")">
+            <AntiforgeryToken />
+
+            <ul>
+                @foreach (var file in sharedFolder.Files)
+                {
+                    <li>
+                        @file.FileName · @FileSize.Format(file.Size)
+                        <button type="submit" name="FileId" value="@file.Id">Download</button>
+                    </li>
+                }
+            </ul>
+        </form>
+    }
+}
 else if (sharedFile is not null)
 {
     <h1>@sharedFile.FileName</h1>
@@ -149,6 +175,8 @@ else if (link is not null)
 
     private SharedFile? sharedFile;
 
+    private SharedFolder? sharedFolder;
+
     private bool passwordRejected;
 
     protected override async Task OnInitializedAsync()
@@ -175,6 +203,17 @@ else if (link is not null)
                         .Where(file => file.Id == fileId)
                         .Select(file => new SharedFile(file.FileName, file.Size))
                         .SingleAsync();
+                }
+                else if (link.FolderId is { } folderId)
+                {
+                    sharedFolder = new SharedFolder(
+                        await db.Folders.Where(folder => folder.Id == folderId).Select(folder => folder.Name).SingleAsync(),
+                        await db.Files
+                            .Where(file => file.FolderId == folderId && file.UploadedAt != null)
+                            .WhereNotExpired(now)
+                            .OrderBy(file => file.FileName)
+                            .Select(file => new SharedFolderFile(file.Id, file.FileName, file.Size))
+                            .ToListAsync());
                 }
                 else
                 {
@@ -253,4 +292,8 @@ else if (link is not null)
     private sealed record SharedContent(string Title, List<PasteThread> Threads);
 
     private sealed record SharedFile(string FileName, long Size);
+
+    private sealed record SharedFolder(string Name, List<SharedFolderFile> Files);
+
+    private sealed record SharedFolderFile(Guid Id, string FileName, long Size);
 }
