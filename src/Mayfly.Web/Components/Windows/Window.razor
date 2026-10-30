@@ -1,0 +1,24 @@
+<section class="window panel" aria-labelledby="window-title" data-expires="@Expires">
+    <header>
+        <h1 id="window-title">@Title</h1>
+        <a class="close" href="@CloseHref" aria-label="Close" data-window-close>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+        </a>
+    </header>
+
+    @ChildContent
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public string CloseHref { get; set; } = default!;
+
+    [Parameter]
+    public string? Expires { get; set; }
+
+    [Parameter, EditorRequired]
+    public RenderFragment ChildContent { get; set; } = default!;
+}

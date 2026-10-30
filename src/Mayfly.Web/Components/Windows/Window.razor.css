@@ -1,0 +1,61 @@
+.window {
+  position: fixed;
+  top: 3.75rem;
+  right: 1.25rem;
+  z-index: 10;
+  width: min(32rem, calc(100vw - 2.5rem));
+  max-height: calc(100dvh - 5rem);
+  padding: 0 1.25rem 1.25rem;
+  overflow-y: auto;
+}
+
+header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0 0.875rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+}
+
+h1 {
+  flex: 1;
+  margin: 0;
+  font-size: 1.125rem;
+  overflow-wrap: anywhere;
+}
+
+.close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius);
+  color: var(--mute);
+}
+
+.close:hover {
+  background: var(--soft);
+  color: var(--ink);
+}
+
+.close svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+@media (max-width: 640px) {
+  .window {
+    inset: 2.75rem 0 0;
+    width: auto;
+    max-height: none;
+    border-radius: 0;
+  }
+}
