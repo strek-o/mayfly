@@ -7,6 +7,9 @@ document.addEventListener("change", (event) => {
   const target = document.getElementById(select.dataset.enables);
   if (target) {
     target.disabled = select.value !== select.dataset.enablesWhen;
+    if (!target.disabled) {
+      target.focus();
+    }
   }
 });
 

@@ -152,6 +152,10 @@ label {
   font-weight: 600;
 }
 
+label:has(> input[type="datetime-local"]:disabled) {
+  display: none;
+}
+
 label:has(> input[type="checkbox"]) {
   display: flex;
   align-items: center;
