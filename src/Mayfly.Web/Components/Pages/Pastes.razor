@@ -1,99 +1,244 @@
 @page "/pastes"
+@page "/pastes/{PasteId:guid}"
+@page "/pastes/{PasteId:guid}/threads/{ThreadId:guid}"
 @attribute [Authorize]
+@layout AppLayout
 @using System.ComponentModel.DataAnnotations
 @using Mayfly.Core.Data
 @using Mayfly.Core.Time
+@using Mayfly.Web.Pastes
 @using Mayfly.Web.Time
+@using Microsoft.AspNetCore.Components.Sections
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<MayflyDbContext> DbFactory
 @inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager Navigation
 
-<PageTitle>My pastes</PageTitle>
+<PageTitle>@(paste?.Title ?? "Pastes")</PageTitle>
 
-<h1>My pastes</h1>
+@if (paste is not null)
+{
+    <SectionContent SectionName="menubar-actions">
+        <details class="new-paste" data-menu open="@showPasteForm">
+            <summary class="button">New paste</summary>
+            @NewPasteForm
+        </details>
+    </SectionContent>
+}
 
-<EditForm Model="Input" FormName="create-paste" OnValidSubmit="CreateAsync" method="post">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
-
-    @if (error is not null)
+<main class="paste panel" data-expires="@paste?.ExpiresAt?.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")">
+    @if (paste is null)
     {
-        <p>@error</p>
+        <h1>Pastes</h1>
+        <p class="empty">Write notes in threads and keep the history of every entry. Start with a title and a lifetime.</p>
+        @NewPasteForm
     }
+    else
+    {
+        <header>
+            <details class="switcher" data-menu>
+                <summary>
+                    <h1>@paste.Title</h1>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                </summary>
 
-    <label>
-        Title
-        <InputText @bind-Value="Input.Title" />
-    </label>
+                <div class="menu">
+                    <ul>
+                        @foreach (var item in pastes)
+                        {
+                            <li>
+                                <a href="pastes/@item.Id" aria-current="@(item.Id == paste.Id ? "page" : null)">@item.Title</a>
+                                <span>@(item.ExpiresAt is { } expiresAt ? TimeLeft.Format(expiresAt, now) : "stays")</span>
+                            </li>
+                        }
+                    </ul>
 
-    <label>
-        Expires
-        <InputSelect @bind-Value="Input.Lifetime" data-enables="custom-expires-at" data-enables-when="@Lifetime.Custom">
-            <option value="@Lifetime.Forever">Never</option>
-            <option value="@Lifetime.OneHour">In 1 hour</option>
-            <option value="@Lifetime.OneDay">In 1 day</option>
-            <option value="@Lifetime.SevenDays">In 7 days</option>
-            <option value="@Lifetime.Custom">Custom date</option>
-        </InputSelect>
-    </label>
+                    <form method="post" @formname="delete-paste" @onsubmit="DeleteAsync"
+                          data-confirm="Delete this paste with all its threads and links?">
+                        <AntiforgeryToken />
+                        <button type="submit" class="button-danger">Delete this paste</button>
+                    </form>
+                </div>
+            </details>
 
-    <label>
-        Custom date
-        <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="Input.CustomExpiresAt" id="custom-expires-at"
-                   disabled="@(Input.Lifetime != Lifetime.Custom)" />
-    </label>
+            @if (paste.ExpiresAt is { } pasteExpiresAt)
+            {
+                <span class="stamp @(TimeLeft.IsSoon(pasteExpiresAt, now) ? "stamp-soon" : null)" data-time-left-stamp>@TimeLeft.Format(pasteExpiresAt, now) left</span>
+            }
+            else
+            {
+                <span class="stamp">No expiry</span>
+            }
 
-    <input type="hidden" name="Input.TimeZone" data-time-zone />
+            <a class="button button-quiet" href="@(Share is null ? $"{ThreadHref}?share=paste" : ThreadHref)">Share</a>
+        </header>
 
-    <button type="submit">Create paste</button>
-</EditForm>
-
-@if (pastes.Count == 0)
-{
-    <p>No pastes yet.</p>
-}
-else
-{
-    <ul>
-        @foreach (var paste in pastes)
+        @if (Share is not null)
         {
-            <li>
-                <a href="pastes/@paste.Id">@paste.Title</a>
-                · created
-                <LocalTime Value="paste.CreatedAt" />
-                · @if (paste.ExpiresAt is { } expiresAt)
-                {
-                    <text>expires
-                        <LocalTime Value="expiresAt" />
-                    </text>
-                }
-                else
-                {
-                    <text>never expires</text>
-                }
-            </li>
+            <div class="sharing">
+                <nav class="scope" aria-label="Share scope">
+                    <a href="@($"{ThreadHref}?share=paste")" aria-current="@(ShareThread ? null : "page")">Whole paste</a>
+                    @if (thread is not null)
+                    {
+                        <a href="@($"{ThreadHref}?share=thread")" aria-current="@(ShareThread ? "page" : null)">This thread</a>
+                    }
+                </nav>
+
+                <ShareLinksPanel PasteId="paste.Id" ThreadId="@(ShareThread ? thread?.Id : null)" />
+            </div>
         }
-    </ul>
-}
+
+        <nav class="tabs" aria-label="Threads">
+            @foreach (var item in threads)
+            {
+                <a href="pastes/@paste.Id/threads/@item.Id" aria-current="@(item.Id == thread?.Id ? "page" : null)">@item.Title</a>
+            }
+
+            <details class="new-thread" data-menu open="@(showThreadForm || threads.Count == 0)">
+                <summary>+ Thread</summary>
+
+                <EditForm Model="ThreadInput" FormName="create-thread" OnValidSubmit="CreateThreadAsync"
+                          OnInvalidSubmit="() => showThreadForm = true" method="post">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <label>
+                        Thread title
+                        <InputText @bind-Value="ThreadInput.Title" autocomplete="off" />
+                    </label>
+
+                    <button type="submit">Add thread</button>
+                </EditForm>
+            </details>
+        </nav>
+
+        @if (thread is not null)
+        {
+            @if (thread.Entries.Count == 0)
+            {
+                <p class="empty">No entries yet. Write the first one below.</p>
+            }
+            else
+            {
+                <ol class="entries">
+                    @foreach (var entry in thread.Entries)
+                    {
+                        <li id="entry-@entry.Id">
+                            <header>
+                                <b>@(entry.AuthorName ?? "You")</b>
+                                @if (entry.AuthorName is not null)
+                                {
+                                    <span>guest</span>
+                                }
+                                <LocalTime Value="entry.CreatedAt" />
+                            </header>
+                            <div class="markdown">@EntryMarkdown.ToHtml(entry.Content)</div>
+                        </li>
+                    }
+                </ol>
+            }
+
+            <EditForm Model="EntryInput" FormName="add-entry" OnValidSubmit="AddEntryAsync" method="post" class="composer">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <label class="visually-hidden" for="entry-content">New entry</label>
+                <InputTextArea @bind-Value="EntryInput.Content" id="entry-content" rows="4"
+                               placeholder="Write an entry… Markdown works." />
+
+                <button type="submit">Add entry</button>
+            </EditForm>
+        }
+    }
+</main>
 
 @code {
+    [Parameter]
+    public Guid? PasteId { get; set; }
+
+    [Parameter]
+    public Guid? ThreadId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "share")]
+    public string? Share { get; set; }
+
     [CascadingParameter]
     private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
 
-    [SupplyParameterFromForm]
-    private InputModel Input { get; set; } = default!;
+    [SupplyParameterFromForm(FormName = "create-paste")]
+    private PasteInputModel PasteInput { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "create-thread")]
+    private ThreadInputModel ThreadInput { get; set; } = default!;
+
+    [SupplyParameterFromForm(FormName = "add-entry")]
+    private EntryInputModel EntryInput { get; set; } = default!;
 
     private List<Paste> pastes = [];
 
+    private Paste? paste;
+
+    private List<PasteThread> threads = [];
+
+    private PasteThread? thread;
+
     private string ownerId = "";
 
-    private string? error;
+    private string? pasteError;
+
+    private bool showPasteForm;
+
+    private bool showThreadForm;
+
+    private readonly DateTimeOffset now = DateTimeOffset.UtcNow;
+
+    private bool ShareThread => Share == "thread" && thread is not null;
+
+    private string ThreadHref => thread is null ? $"pastes/{paste!.Id}" : $"pastes/{paste!.Id}/threads/{thread.Id}";
+
+    private RenderFragment NewPasteForm => @<EditForm Model="PasteInput" FormName="create-paste" OnValidSubmit="CreatePasteAsync"
+                                                      OnInvalidSubmit="() => showPasteForm = true" method="post">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        @if (pasteError is not null)
+        {
+            <p class="form-error" role="alert">@pasteError</p>
+        }
+
+        <label>
+            Title
+            <InputText @bind-Value="PasteInput.Title" autocomplete="off" />
+        </label>
+
+        <label>
+            Expires
+            <InputSelect @bind-Value="PasteInput.Lifetime" data-enables="paste-custom-expires-at" data-enables-when="@Lifetime.Custom">
+                <option value="@Lifetime.Forever">Never</option>
+                <option value="@Lifetime.OneHour">In 1 hour</option>
+                <option value="@Lifetime.OneDay">In 1 day</option>
+                <option value="@Lifetime.SevenDays">In 7 days</option>
+                <option value="@Lifetime.Custom">Custom date</option>
+            </InputSelect>
+        </label>
+
+        <label>
+            Custom date
+            <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="PasteInput.CustomExpiresAt" id="paste-custom-expires-at"
+                       disabled="@(PasteInput.Lifetime != Lifetime.Custom)" />
+        </label>
+
+        <input type="hidden" name="PasteInput.TimeZone" data-time-zone />
+
+        <button type="submit">Create paste</button>
+    </EditForm>;
 
     protected override async Task OnInitializedAsync()
     {
-        Input ??= new();
+        PasteInput ??= new();
+        ThreadInput ??= new();
+        EntryInput ??= new();
 
         var user = (await AuthenticationState).User;
         ownerId = UserManager.GetUserId(user)
@@ -102,39 +247,121 @@ else
         await using var db = await DbFactory.CreateDbContextAsync();
         pastes = await db.Pastes
             .AsNoTracking()
-            .Where(paste => paste.OwnerId == ownerId)
-            .WhereNotExpired(DateTimeOffset.UtcNow)
-            .OrderByDescending(paste => paste.CreatedAt)
+            .Where(p => p.OwnerId == ownerId)
+            .WhereNotExpired(now)
+            .OrderByDescending(p => p.CreatedAt)
             .ToListAsync();
+
+        paste = PasteId is { } pasteId ? pastes.SingleOrDefault(p => p.Id == pasteId) : pastes.FirstOrDefault();
+        if (PasteId is not null && paste is null)
+        {
+            Navigation.NotFound();
+            return;
+        }
+
+        if (paste is null)
+        {
+            return;
+        }
+
+        threads = await db.Threads
+            .AsNoTracking()
+            .Where(t => t.PasteId == paste.Id)
+            .OrderBy(t => t.CreatedAt)
+            .ToListAsync();
+
+        var threadId = ThreadId ?? threads.FirstOrDefault()?.Id;
+        if (threadId is not null)
+        {
+            thread = await db.Threads
+                .AsNoTracking()
+                .Include(t => t.Entries.OrderBy(entry => entry.CreatedAt))
+                .SingleOrDefaultAsync(t => t.Id == threadId && t.PasteId == paste.Id);
+        }
+
+        if (ThreadId is not null && thread is null)
+        {
+            Navigation.NotFound();
+        }
     }
 
-    private async Task CreateAsync()
+    private async Task CreatePasteAsync()
     {
-        var now = DateTimeOffset.UtcNow;
-        DateTimeOffset? customExpiresAt = Input.CustomExpiresAt is { } custom
-            ? LocalDateTime.ToUtc(custom, Input.TimeZone)
+        var createdAt = DateTimeOffset.UtcNow;
+        DateTimeOffset? customExpiresAt = PasteInput.CustomExpiresAt is { } custom
+            ? LocalDateTime.ToUtc(custom, PasteInput.TimeZone)
             : null;
 
-        if (Input.Lifetime == Lifetime.Custom && !(customExpiresAt > now))
+        if (PasteInput.Lifetime == Lifetime.Custom && !(customExpiresAt > createdAt))
         {
-            error = "Custom date must be in the future.";
+            pasteError = "Custom date must be in the future.";
+            showPasteForm = true;
+            return;
+        }
+
+        var created = new Paste
+        {
+            OwnerId = ownerId,
+            Title = PasteInput.Title.Trim(),
+            CreatedAt = createdAt,
+            ExpiresAt = Expiration.Calculate(PasteInput.Lifetime, createdAt, customExpiresAt)
+        };
+        var firstThread = new PasteThread { Title = "main", CreatedAt = createdAt };
+        created.Threads.Add(firstThread);
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.Pastes.Add(created);
+        await db.SaveChangesAsync();
+
+        Navigation.NavigateTo($"pastes/{created.Id}/threads/{firstThread.Id}");
+    }
+
+    private async Task CreateThreadAsync()
+    {
+        if (paste is null)
+        {
+            return;
+        }
+
+        var created = new PasteThread { PasteId = paste.Id, Title = ThreadInput.Title.Trim(), CreatedAt = DateTimeOffset.UtcNow };
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.Threads.Add(created);
+        await db.SaveChangesAsync();
+
+        Navigation.NavigateTo($"pastes/{paste.Id}/threads/{created.Id}");
+    }
+
+    private async Task AddEntryAsync()
+    {
+        if (paste is null || thread is null)
+        {
+            return;
+        }
+
+        var entry = new ThreadEntry { ThreadId = thread.Id, Content = EntryInput.Content, CreatedAt = DateTimeOffset.UtcNow };
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.Entries.Add(entry);
+        await db.SaveChangesAsync();
+
+        Navigation.NavigateTo($"pastes/{paste.Id}/threads/{thread.Id}#entry-{entry.Id}");
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (paste is null)
+        {
             return;
         }
 
         await using var db = await DbFactory.CreateDbContextAsync();
-        db.Pastes.Add(new Paste
-        {
-            OwnerId = ownerId,
-            Title = Input.Title.Trim(),
-            CreatedAt = now,
-            ExpiresAt = Expiration.Calculate(Input.Lifetime, now, customExpiresAt)
-        });
-        await db.SaveChangesAsync();
+        await db.Pastes.Where(p => p.Id == paste.Id && p.OwnerId == ownerId).DeleteWithShareLinksAsync(db);
 
         Navigation.NavigateTo("pastes");
     }
 
-    private sealed class InputModel
+    private sealed class PasteInputModel
     {
         [Required]
         [StringLength(200)]
@@ -146,5 +373,19 @@ else
         public DateTime? CustomExpiresAt { get; set; }
 
         public string? TimeZone { get; set; }
+    }
+
+    private sealed class ThreadInputModel
+    {
+        [Required]
+        [StringLength(200)]
+        public string Title { get; set; } = "";
+    }
+
+    private sealed class EntryInputModel
+    {
+        [Required]
+        [StringLength(100_000)]
+        public string Content { get; set; } = "";
     }
 }

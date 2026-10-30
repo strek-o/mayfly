@@ -61,6 +61,22 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     }
 
     [Fact]
+    public async Task ThreadPage_ForThreadOfAnotherPaste_ReturnsNotFound()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var (_, otherId) = await RegisterAsync();
+        var ownPasteId = await SeedPasteAsync(ownerId, "own paste");
+        var ownThreadId = await SeedThreadAsync(ownPasteId);
+        var otherThreadId = await SeedThreadAsync(await SeedPasteAsync(otherId, "not yours"));
+
+        var ownResponse = await owner.GetAsync($"/pastes/{ownPasteId}/threads/{ownThreadId}", Ct);
+        var mixedResponse = await owner.GetAsync($"/pastes/{ownPasteId}/threads/{otherThreadId}", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, ownResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, mixedResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task CreatePaste_WithUndefinedLifetime_ShowsValidationErrorAndSavesNothing()
     {
         var (owner, _) = await RegisterAsync();
@@ -69,7 +85,7 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
 
         var response = await owner.PostAsync(
             "/pastes",
-            Form(antiforgery, ("_handler", "create-paste"), ("Input.Title", title), ("Input.Lifetime", "999")),
+            Form(antiforgery, ("_handler", "create-paste"), ("PasteInput.Title", title), ("PasteInput.Lifetime", "999")),
             Ct);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
