@@ -44,14 +44,24 @@ document.addEventListener("dblclick", (event) => {
 });
 
 const fileDragType = "application/x-mayfly-file";
+const itemDragType = "application/x-mayfly-item";
 
 document.addEventListener("dragstart", (event) => {
-  const link = event.target.closest?.("a[data-file-id]");
-  if (link) {
-    event.dataTransfer.setData(fileDragType, link.dataset.fileId);
-    event.dataTransfer.effectAllowed = "move";
+  const link = event.target.closest?.(".desktop .item > a");
+  if (!link) {
+    return;
   }
+
+  if (link.dataset.fileId) {
+    event.dataTransfer.setData(fileDragType, link.dataset.fileId);
+  }
+  event.dataTransfer.setData(itemDragType, itemId(link));
+  event.dataTransfer.effectAllowed = "move";
 });
+
+function itemId(link) {
+  return link.dataset.fileId ?? link.dataset.folderTarget;
+}
 
 function folderTarget(event) {
   return event.dataTransfer?.types.includes(fileDragType)
@@ -86,6 +96,81 @@ document.addEventListener("drop", async (event) => {
       target.dataset.folderTarget,
     );
   } finally {
+    location.reload();
+  }
+});
+
+function layoutTarget(event) {
+  return event.dataTransfer?.types.includes(itemDragType) &&
+    !folderTarget(event)
+    ? event.target.closest?.(".desktop")
+    : null;
+}
+
+document.addEventListener("dragover", (event) => {
+  if (layoutTarget(event)) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }
+});
+
+document.addEventListener("drop", async (event) => {
+  const grid = layoutTarget(event);
+  if (!grid) {
+    return;
+  }
+
+  event.preventDefault();
+  const style = getComputedStyle(grid);
+  const box = grid.getBoundingClientRect();
+  const left = box.left + parseFloat(style.paddingLeft) - grid.scrollLeft;
+  const top = box.top + parseFloat(style.paddingTop) - grid.scrollTop;
+  const width = parseFloat(style.gridAutoColumns) + parseFloat(style.columnGap);
+  const height = parseFloat(style.gridTemplateRows);
+  const rows = style.gridTemplateRows.split(" ").length;
+  const cellAt = (x, y) => [
+    Math.max(1, Math.floor((x - left) / width) + 1),
+    Math.min(rows, Math.max(1, Math.floor((y - top) / height) + 1)),
+  ];
+
+  const items = [...grid.querySelectorAll(":scope > .item")].map((item) => {
+    const rect = item.getBoundingClientRect();
+    return {
+      item,
+      id: itemId(item.querySelector(":scope > a")),
+      cell: cellAt(rect.left + rect.width / 2, rect.top + rect.height / 2),
+    };
+  });
+  const moved = items.find(
+    ({ id }) => id === event.dataTransfer.getData(itemDragType),
+  );
+  const target = cellAt(event.clientX, event.clientY);
+  const occupant = items.find(
+    ({ cell }) => cell[0] === target[0] && cell[1] === target[1],
+  );
+  if (!moved || occupant === moved) {
+    return;
+  }
+
+  if (occupant) {
+    occupant.cell = moved.cell;
+  }
+  moved.cell = target;
+
+  const fields = {};
+  items.forEach(({ item, id, cell: [column, row] }, index) => {
+    item.style.gridArea = `${row} / ${column}`;
+    fields[`Items[${index}].Id`] = id;
+    fields[`Items[${index}].Column`] = column;
+    fields[`Items[${index}].Row`] = row;
+  });
+
+  const antiforgery = document.querySelector(
+    'input[name="__RequestVerificationToken"]',
+  ).value;
+  try {
+    await postForm("desktop/layout", antiforgery, fields);
+  } catch {
     location.reload();
   }
 });

@@ -20,5 +20,9 @@ public class FileItem : IExpiring
 
     public DateTimeOffset? ExpiresAt { get; set; }
 
+    public int? GridColumn { get; set; }
+
+    public int? GridRow { get; set; }
+
     public string BlobName => Id.ToString("N");
 }

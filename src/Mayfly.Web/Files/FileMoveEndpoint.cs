@@ -35,7 +35,12 @@ public static class FileMoveEndpoint
         var moved = await db.Files
             .Where(file => file.Id == id && file.OwnerId == ownerId && file.UploadedAt != null)
             .WhereNotExpired(DateTimeOffset.UtcNow)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(file => file.FolderId, folderId), cancellationToken);
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(file => file.FolderId, folderId)
+                    .SetProperty(file => file.GridColumn, (int?)null)
+                    .SetProperty(file => file.GridRow, (int?)null),
+                cancellationToken);
 
         return moved == 0 ? Results.NotFound() : Results.NoContent();
     }

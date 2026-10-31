@@ -11,4 +11,8 @@ public class Folder
     public required string Name { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
+
+    public int? GridColumn { get; set; }
+
+    public int? GridRow { get; set; }
 }

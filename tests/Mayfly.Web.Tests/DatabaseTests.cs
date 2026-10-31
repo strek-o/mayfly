@@ -613,16 +613,61 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     }
 
     [Fact]
+    public async Task DesktopLayout_SavesOnlyOwnItemsAndPlacesThem()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var (_, otherId) = await RegisterAsync();
+        var folderId = await SeedFolderAsync(ownerId);
+        var now = DateTimeOffset.UtcNow;
+        var (file, _) = await SeedFileAsync(ownerId, now, uploaded: true);
+        var (foreign, _) = await SeedFileAsync(otherId, now, uploaded: true);
+        var antiforgery = await GetAntiforgeryTokenAsync(owner, "/desktop");
+
+        var saved = await owner.PostAsync(
+            "/desktop/layout",
+            Form(antiforgery,
+                ("Items[0].Id", file.Id.ToString()), ("Items[0].Column", "3"), ("Items[0].Row", "2"),
+                ("Items[1].Id", folderId.ToString()), ("Items[1].Column", "1"), ("Items[1].Row", "4"),
+                ("Items[2].Id", foreign.Id.ToString()), ("Items[2].Column", "5"), ("Items[2].Row", "5")),
+            Ct);
+        var outOfRange = await owner.PostAsync(
+            "/desktop/layout",
+            Form(antiforgery, ("Items[0].Id", file.Id.ToString()), ("Items[0].Column", "0"), ("Items[0].Row", "1")),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, saved.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, outOfRange.StatusCode);
+        await using (var db = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            Assert.True(await db.Files.AnyAsync(f => f.Id == file.Id && f.GridColumn == 3 && f.GridRow == 2, Ct));
+            Assert.True(await db.Folders.AnyAsync(f => f.Id == folderId && f.GridColumn == 1 && f.GridRow == 4, Ct));
+            Assert.True(await db.Files.AnyAsync(f => f.Id == foreign.Id && f.GridColumn == null && f.GridRow == null, Ct));
+        }
+
+        var desktop = await owner.GetStringAsync("/desktop", Ct);
+        Assert.Contains("grid-area: 2 / 3", desktop);
+        Assert.Contains("grid-area: 4 / 1", desktop);
+    }
+
+    [Fact]
     public async Task MoveFile_IntoOwnFolderAndBackToTheDesktop()
     {
         var (owner, ownerId) = await RegisterAsync();
         var folderId = await SeedFolderAsync(ownerId);
         var (file, _) = await SeedFileAsync(ownerId, DateTimeOffset.UtcNow, uploaded: true);
         var antiforgery = await GetAntiforgeryTokenAsync(owner, "/desktop");
+        await using (var db = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            await db.Files.Where(f => f.Id == file.Id).ExecuteUpdateAsync(set => set.SetProperty(f => f.GridColumn, 2).SetProperty(f => f.GridRow, 3), Ct);
+        }
 
         var intoFolder = await owner.PostAsync($"/files/{file.Id}/move", Form(antiforgery, ("FolderId", folderId.ToString())), Ct);
         Assert.Equal(HttpStatusCode.NoContent, intoFolder.StatusCode);
         Assert.Equal(folderId, await GetFolderIdAsync(file.Id));
+        await using (var db = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            Assert.False(await db.Files.AnyAsync(f => f.Id == file.Id && (f.GridColumn != null || f.GridRow != null), Ct));
+        }
 
         var backToDesktop = await owner.PostAsync($"/files/{file.Id}/move", Form(antiforgery), Ct);
         Assert.Equal(HttpStatusCode.NoContent, backToDesktop.StatusCode);

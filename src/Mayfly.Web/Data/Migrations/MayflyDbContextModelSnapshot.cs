@@ -113,6 +113,12 @@ namespace Mayfly.Web.Data.Migrations
                     b.Property<Guid?>("FolderId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int?>("GridColumn")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("GridRow")
+                        .HasColumnType("int");
+
                     b.Property<string>("OwnerId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -145,6 +151,12 @@ namespace Mayfly.Web.Data.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("GridColumn")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("GridRow")
+                        .HasColumnType("int");
 
                     b.Property<string>("Name")
                         .IsRequired()

@@ -132,15 +132,15 @@ else
 }
 
 <ul class="desktop">
-    @foreach (var (id, name, count) in folders)
+    @foreach (var (item, count) in folders)
     {
-        <li class="item folder">
-            <a href="desktop/folders/@id" data-folder-target="@id" data-share="desktop/folders/@id?share=true">
+        <li class="item folder" style="@GridArea(item.GridColumn, item.GridRow)">
+            <a href="desktop/folders/@item.Id" data-folder-target="@item.Id" data-share="desktop/folders/@item.Id?share=true">
                 <span class="glyph">
                     <svg aria-hidden="true"><use href="#folder-glyph" /></svg>
                 </span>
                 <span class="text">
-                    <span class="name">@name</span>
+                    <span class="name">@item.Name</span>
                 </span>
                 <span class="left">@count @(count == 1 ? "item" : "items")</span>
             </a>
@@ -153,7 +153,7 @@ else
         var extension = Path.GetExtension(file.FileName).TrimStart('.').ToUpperInvariant();
         var timeLeft = file.ExpiresAt is { } expiry ? TimeLeft.Format(expiry, now) : null;
 
-        <li class="item @(soon ? "soon" : null)"
+        <li class="item @(soon ? "soon" : null)" style="@GridArea(file.GridColumn, file.GridRow)"
             data-expires="@file.ExpiresAt?.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")">
             <a href="@ViewHref/files/@file.Id" aria-describedby="card-@file.Id"
                aria-current="@(file.Id == FileId ? "true" : null)" data-download="files/@file.Id/download"
@@ -270,7 +270,7 @@ else
 
     private List<Folder> allFolders = [];
 
-    private List<(Guid Id, string Name, int Count)> folders = [];
+    private List<(Folder Folder, int Count)> folders = [];
 
     private List<(FileItem File, string Link)> files = [];
 
@@ -326,7 +326,7 @@ else
 
         folders = allFolders
             .Where(f => f.ParentId == FolderId)
-            .Select(f => (f.Id, f.Name, fileCounts.GetValueOrDefault(f.Id) + allFolders.Count(child => child.ParentId == f.Id)))
+            .Select(f => (f, fileCounts.GetValueOrDefault(f.Id) + allFolders.Count(child => child.ParentId == f.Id)))
             .ToList();
 
         var items = await db.Files
@@ -409,6 +409,8 @@ else
 
         Navigation.NavigateTo(FolderId is { } current && ids.Contains(current) ? FolderHref(target.ParentId) : ViewHref);
     }
+
+    private static string? GridArea(int? column, int? row) => column is { } c && row is { } r ? $"grid-area: {r} / {c}" : null;
 
     private static string FolderHref(Guid? folderId) => folderId is { } id ? $"desktop/folders/{id}" : "desktop";
 
