@@ -23,10 +23,11 @@ public sealed class ExpiredContentCleanupService(
                 await using var db = await dbFactory.CreateDbContextAsync(stoppingToken);
                 var result = await ExpiredContentCleanup.RunAsync(db, storage, DateTimeOffset.UtcNow, stoppingToken);
                 logger.LogInformation(
-                    "Deleted {ExpiredPastes} expired pastes, {ExpiredFiles} expired files and {AbandonedUploads} abandoned uploads",
+                    "Deleted {ExpiredPastes} expired pastes, {ExpiredFiles} expired files, {AbandonedUploads} abandoned uploads and {ExpiredFolders} expired folders",
                     result.ExpiredPastes,
                     result.ExpiredFiles,
-                    result.AbandonedUploads);
+                    result.AbandonedUploads,
+                    result.ExpiredFolders);
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {

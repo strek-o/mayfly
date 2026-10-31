@@ -24,17 +24,18 @@ public static class FileMoveEndpoint
         CancellationToken cancellationToken)
     {
         var ownerId = userManager.GetUserId(user);
+        var now = DateTimeOffset.UtcNow;
 
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
         if (folderId is { } target
-            && !await db.Folders.AnyAsync(folder => folder.Id == target && folder.OwnerId == ownerId, cancellationToken))
+            && !await db.Folders.WhereNotExpired(now).AnyAsync(folder => folder.Id == target && folder.OwnerId == ownerId, cancellationToken))
         {
             return Results.BadRequest();
         }
 
         var moved = await db.Files
             .Where(file => file.Id == id && file.OwnerId == ownerId && file.UploadedAt != null)
-            .WhereNotExpired(DateTimeOffset.UtcNow)
+            .WhereNotExpired(now)
             .ExecuteUpdateAsync(
                 setters => setters
                     .SetProperty(file => file.FolderId, folderId)

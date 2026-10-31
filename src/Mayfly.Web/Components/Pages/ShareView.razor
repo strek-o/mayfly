@@ -332,7 +332,14 @@ else if (link is not null)
                 }
                 else if (link.FolderId is { } folderId)
                 {
-                    var tree = await db.Folders.LoadTreeAsync(folderId);
+                    var tree = await db.Folders.LoadTreeAsync(folderId, now);
+                    if (tree.Count == 0)
+                    {
+                        link = null;
+                        Navigation.NotFound();
+                        return;
+                    }
+
                     var current = tree.Find(folder => folder.Id == FolderId) ?? tree[0];
                     sharedFolder = new SharedFolder(
                         current,

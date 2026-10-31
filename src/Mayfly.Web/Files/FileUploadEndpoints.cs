@@ -57,7 +57,7 @@ public static class FileUploadEndpoints
 
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
         if (form.FolderId is { } folderId
-            && !await db.Folders.AnyAsync(folder => folder.Id == folderId && folder.OwnerId == ownerId, cancellationToken))
+            && !await db.Folders.WhereNotExpired(now).AnyAsync(folder => folder.Id == folderId && folder.OwnerId == ownerId, cancellationToken))
         {
             return Results.BadRequest();
         }

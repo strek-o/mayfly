@@ -316,9 +316,9 @@ else
             return;
         }
 
-        var ids = allFolders.Subtree(target.Id).Select(f => f.Id).ToList();
-
         await using var db = await DbFactory.CreateDbContextAsync();
+        var ownerFolders = await db.Folders.AsNoTracking().Where(f => f.OwnerId == ownerId).ToListAsync();
+        var ids = ownerFolders.Subtree(target.Id).Select(f => f.Id).ToList();
         await db.Files
             .Where(file => file.FolderId != null && ids.Contains(file.FolderId.Value) && file.OwnerId == ownerId)
             .DeleteWithBlobsAsync(db, Storage);

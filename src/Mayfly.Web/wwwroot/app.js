@@ -577,6 +577,7 @@ document.addEventListener("submit", async (event) => {
       status.textContent = `Creating ${path}…`;
       const created = await postForm("folders", antiforgery, {
         Name: path.slice(slash + 1),
+        ...lifetimeFields(form),
         ...(parentId ? { ParentId: parentId } : {}),
       });
       folderIds.set(path, (await created.json()).id);
@@ -717,20 +718,26 @@ function showChosenFiles(form) {
     names.length > 0 ? `Ready: ${names.join(", ")}` : "";
 }
 
-async function uploadFile(form, file, folderId) {
-  const antiforgery = form.elements.__RequestVerificationToken.value;
-  const contentType = file.type || "application/octet-stream";
+function lifetimeFields(form) {
   const customExpiresAt = form.elements.CustomExpiresAt;
-
-  const started = await postForm(form.action, antiforgery, {
-    FileName: file.name,
-    ContentType: contentType,
-    Size: file.size,
+  return {
     Lifetime: form.elements.Lifetime.value,
     TimeZone: form.elements.TimeZone.value,
     ...(customExpiresAt.disabled || !customExpiresAt.value
       ? {}
       : { CustomExpiresAt: customExpiresAt.value }),
+  };
+}
+
+async function uploadFile(form, file, folderId) {
+  const antiforgery = form.elements.__RequestVerificationToken.value;
+  const contentType = file.type || "application/octet-stream";
+
+  const started = await postForm(form.action, antiforgery, {
+    FileName: file.name,
+    ContentType: contentType,
+    Size: file.size,
+    ...lifetimeFields(form),
     ...(folderId ? { FolderId: folderId } : {}),
   });
   const { id, uploadUrl } = await started.json();

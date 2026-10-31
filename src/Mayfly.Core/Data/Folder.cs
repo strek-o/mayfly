@@ -1,6 +1,6 @@
 namespace Mayfly.Core.Data;
 
-public class Folder
+public class Folder : IExpiring
 {
     public Guid Id { get; set; }
 
@@ -11,6 +11,8 @@ public class Folder
     public required string Name { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
+
+    public DateTimeOffset? ExpiresAt { get; set; }
 
     public int? GridColumn { get; set; }
 

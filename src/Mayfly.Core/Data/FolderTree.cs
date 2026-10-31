@@ -7,6 +7,7 @@ public static class FolderTree
     public static async Task<List<Folder>> LoadTreeAsync(
         this IQueryable<Folder> folders,
         Guid rootId,
+        DateTimeOffset now,
         CancellationToken cancellationToken = default)
     {
         var ownerFolders = await folders
@@ -14,7 +15,7 @@ public static class FolderTree
             .Where(folder => folders.Any(root => root.Id == rootId && root.OwnerId == folder.OwnerId))
             .ToListAsync(cancellationToken);
 
-        return ownerFolders.Subtree(rootId);
+        return ownerFolders.Live(now).Subtree(rootId);
     }
 
     public static List<Folder> Subtree(this IReadOnlyList<Folder> folders, Guid rootId)
@@ -26,6 +27,19 @@ public static class FolderTree
         }
 
         return subtree;
+    }
+
+    public static List<Folder> Expired(this IReadOnlyList<Folder> folders, DateTimeOffset now) =>
+        folders
+            .Where(folder => folder.ExpiresAt <= now)
+            .SelectMany(folder => folders.Subtree(folder.Id))
+            .DistinctBy(folder => folder.Id)
+            .ToList();
+
+    public static List<Folder> Live(this IReadOnlyList<Folder> folders, DateTimeOffset now)
+    {
+        var expired = folders.Expired(now).Select(folder => folder.Id).ToHashSet();
+        return folders.Where(folder => !expired.Contains(folder.Id)).ToList();
     }
 
     public static List<Folder> Ancestors(this IReadOnlyList<Folder> folders, Folder child)

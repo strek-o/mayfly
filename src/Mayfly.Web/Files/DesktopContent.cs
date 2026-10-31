@@ -12,11 +12,12 @@ public sealed record DesktopContent(
 {
     public static async Task<DesktopContent> LoadAsync(MayflyDbContext db, string ownerId, Guid? folderId, DateTimeOffset now)
     {
-        var allFolders = await db.Folders
+        var allFolders = (await db.Folders
             .AsNoTracking()
             .Where(f => f.OwnerId == ownerId)
             .OrderBy(f => f.Name)
-            .ToListAsync();
+            .ToListAsync())
+            .Live(now);
         var current = allFolders.Find(f => f.Id == folderId);
         var currentId = current?.Id;
 

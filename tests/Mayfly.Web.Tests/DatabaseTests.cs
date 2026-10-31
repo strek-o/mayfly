@@ -324,6 +324,96 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     }
 
     [Fact]
+    public async Task FolderEndpoint_GivesFoldersTheChosenLifetime()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var expiredId = await SeedFolderAsync(ownerId, expiresAt: DateTimeOffset.UtcNow.AddMinutes(-1));
+        var antiforgery = await GetAntiforgeryTokenAsync(owner, "/desktop");
+        var before = DateTimeOffset.UtcNow;
+
+        var expiring = await owner.PostAsync("/folders", Form(antiforgery, ("Name", "Temp"), ("Lifetime", "OneHour")), Ct);
+        var underExpired = await owner.PostAsync(
+            "/folders",
+            Form(antiforgery, ("Name", "Late"), ("ParentId", expiredId.ToString())),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.OK, expiring.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, underExpired.StatusCode);
+        var expiringId = (await expiring.Content.ReadFromJsonAsync<FolderCreateEndpoint.FolderCreated>(Ct))!.Id;
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        var expiresAt = await db.Folders.Where(f => f.Id == expiringId).Select(f => f.ExpiresAt).SingleAsync(Ct);
+        Assert.InRange(expiresAt!.Value, before.AddHours(1), DateTimeOffset.UtcNow.AddHours(1));
+        Assert.False(await db.Folders.AnyAsync(f => f.OwnerId == ownerId && f.Name == "Late", Ct));
+    }
+
+    [Fact]
+    public async Task ExpiredFolder_HidesItsContentsUntilCleanupDeletesThem()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var now = DateTimeOffset.UtcNow;
+        var expiredId = await SeedFolderAsync(ownerId, expiresAt: now.AddMinutes(-1));
+        var nestedId = await SeedFolderAsync(ownerId, expiredId);
+        var liveId = await SeedFolderAsync(ownerId, expiresAt: now.AddHours(1));
+        var (nested, nestedBlob) = await SeedFileAsync(ownerId, now, uploaded: true, folderId: nestedId);
+        var (kept, keptBlob) = await SeedFileAsync(ownerId, now, uploaded: true, folderId: liveId);
+        var expiredToken = await SeedFolderLinkAsync(expiredId);
+        var nestedToken = await SeedFolderLinkAsync(nestedId);
+
+        var desktop = await owner.GetStringAsync("/desktop", Ct);
+        Assert.DoesNotContain($"desktop/folders/{expiredId}", desktop);
+        Assert.Contains($"desktop/folders/{liveId}", desktop);
+        Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync($"/desktop/folders/{expiredId}", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync($"/desktop/folders/{nestedId}", Ct)).StatusCode);
+
+        var visitor = CreateClient();
+        Assert.Equal(HttpStatusCode.NotFound, (await visitor.GetAsync($"/s/{expiredToken}", Ct)).StatusCode);
+        await visitor.PostAsync(
+            $"/s/{nestedToken}",
+            Form(await GetAntiforgeryTokenAsync(visitor, $"/s/{nestedToken}"), ("_handler", "reveal")),
+            Ct);
+        var nestedView = await visitor.GetAsync($"/s/{nestedToken}", Ct);
+        Assert.Equal(HttpStatusCode.NotFound, nestedView.StatusCode);
+        Assert.DoesNotContain(nested.FileName, await nestedView.Content.ReadAsStringAsync(Ct));
+
+        await using (var cleanupDb = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            await ExpiredContentCleanup.RunAsync(
+                cleanupDb, database.Factory.Services.GetRequiredService<FileStorage>(), now, Ct);
+        }
+
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.False(await db.Folders.AnyAsync(f => f.Id == expiredId || f.Id == nestedId, Ct));
+        Assert.False(await db.Files.AnyAsync(f => f.Id == nested.Id, Ct));
+        Assert.False(await nestedBlob.ExistsAsync(Ct));
+        Assert.False(await db.ShareLinks.AnyAsync(link => link.FolderId == expiredId || link.FolderId == nestedId, Ct));
+        Assert.True(await db.Folders.AnyAsync(f => f.Id == liveId, Ct));
+        Assert.True(await db.Files.AnyAsync(f => f.Id == kept.Id, Ct));
+        Assert.True(await keptBlob.ExistsAsync(Ct));
+    }
+
+    [Fact]
+    public async Task DeleteFolder_AlsoRemovesExpiredSubfolders()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var now = DateTimeOffset.UtcNow;
+        var parentId = await SeedFolderAsync(ownerId);
+        var expiredChildId = await SeedFolderAsync(ownerId, parentId, now.AddMinutes(-1));
+        var (file, blob) = await SeedFileAsync(ownerId, now, uploaded: true, folderId: expiredChildId);
+        var url = $"/desktop/folders/{parentId}";
+
+        var response = await owner.PostAsync(
+            url,
+            Form(await GetAntiforgeryTokenAsync(owner, url), ("_handler", "delete-current-folder")),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.False(await blob.ExistsAsync(Ct));
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.False(await db.Folders.AnyAsync(f => f.Id == parentId || f.Id == expiredChildId, Ct));
+        Assert.False(await db.Files.AnyAsync(f => f.Id == file.Id, Ct));
+    }
+
+    [Fact]
     public async Task FolderView_ForAnotherUsersFolder_ReturnsNotFound()
     {
         var (_, ownerId) = await RegisterAsync();
@@ -989,9 +1079,9 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         return await db.Files.Where(f => f.Id == fileId).Select(f => f.FolderId).SingleAsync(Ct);
     }
 
-    private async Task<Guid> SeedFolderAsync(string ownerId, Guid? parentId = null)
+    private async Task<Guid> SeedFolderAsync(string ownerId, Guid? parentId = null, DateTimeOffset? expiresAt = null)
     {
-        var folder = new Folder { OwnerId = ownerId, ParentId = parentId, Name = "folder", CreatedAt = DateTimeOffset.UtcNow };
+        var folder = new Folder { OwnerId = ownerId, ParentId = parentId, Name = "folder", CreatedAt = DateTimeOffset.UtcNow, ExpiresAt = expiresAt };
 
         await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
         db.Folders.Add(folder);

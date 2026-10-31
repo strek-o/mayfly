@@ -79,6 +79,7 @@ public class MayflyDbContext(DbContextOptions<MayflyDbContext> options)
         modelBuilder.Entity<Folder>(folder =>
         {
             folder.Property(f => f.Name).HasMaxLength(100);
+            folder.HasIndex(f => f.ExpiresAt);
             folder.HasOne<ApplicationUser>().WithMany().HasForeignKey(f => f.OwnerId);
             folder.HasOne<Folder>().WithMany().HasForeignKey(f => f.ParentId).OnDelete(DeleteBehavior.NoAction);
         });

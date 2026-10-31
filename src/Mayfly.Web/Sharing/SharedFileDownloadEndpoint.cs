@@ -47,7 +47,7 @@ public static class SharedFileDownloadEndpoint
         Guid? requestedFileId = Guid.TryParse(form["FileId"], out var parsed) ? parsed : null;
 
         var folderIds = link?.FolderId is { } sharedFolderId
-            ? (await db.Folders.LoadTreeAsync(sharedFolderId, cancellationToken)).Select(folder => folder.Id).ToList()
+            ? (await db.Folders.LoadTreeAsync(sharedFolderId, now, cancellationToken)).Select(folder => folder.Id).ToList()
             : [];
         var liveFiles = db.Files.AsNoTracking().Where(f => f.UploadedAt != null).WhereNotExpired(now);
         var file = link switch
