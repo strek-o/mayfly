@@ -131,85 +131,11 @@ else
     </nav>
 }
 
-<ul class="desktop">
-    @foreach (var (item, count) in folders)
-    {
-        <li class="item folder" style="@GridArea(item.GridColumn, item.GridRow)">
-            <a href="desktop/folders/@item.Id" data-folder-target="@item.Id" data-share="desktop/folders/@item.Id?share=true">
-                <span class="glyph">
-                    <svg aria-hidden="true"><use href="#folder-glyph" /></svg>
-                </span>
-                <span class="text">
-                    <span class="name">@item.Name</span>
-                </span>
-                <span class="left">@count @(count == 1 ? "item" : "items")</span>
-            </a>
-        </li>
-    }
-
-    @foreach (var (file, link) in files)
-    {
-        var soon = TimeLeft.IsSoon(file.ExpiresAt, now);
-        var extension = Path.GetExtension(file.FileName).TrimStart('.').ToUpperInvariant();
-        var timeLeft = file.ExpiresAt is { } expiry ? TimeLeft.Format(expiry, now) : null;
-
-        <li class="item @(soon ? "soon" : null)" style="@GridArea(file.GridColumn, file.GridRow)"
-            data-expires="@file.ExpiresAt?.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")">
-            <a href="@ViewHref/files/@file.Id" aria-describedby="card-@file.Id"
-               aria-current="@(file.Id == FileId ? "true" : null)" data-download="files/@file.Id/download"
-               data-file-id="@file.Id">
-                <span class="glyph">
-                    <svg aria-hidden="true"><use href="#file-glyph" /></svg>
-                    @if (extension is { Length: > 0 and <= 4 })
-                    {
-                        <b>@extension</b>
-                    }
-                </span>
-                <span class="text">
-                    <span class="name">@file.FileName</span>
-                    <span class="meta">@FileSize.Format(file.Size)</span>
-                </span>
-                <span class="left" data-time-left>@(timeLeft ?? "stays")</span>
-            </a>
-
-            <div class="card" id="card-@file.Id" role="tooltip">
-                <header>
-                    <b>@file.FileName</b>
-                    <span>@(extension.Length > 0 ? $"{extension} file" : "File")</span>
-                </header>
-
-                <div class="when">
-                    @if (file.ExpiresAt is { } expiresAt)
-                    {
-                        <span class="stamp @(soon ? "stamp-soon" : null)" data-time-left-stamp>@timeLeft left</span>
-                        <small>gone <LocalTime Value="expiresAt" /></small>
-                    }
-                    else
-                    {
-                        <span class="stamp">No expiry</span>
-                    }
-                </div>
-
-                <dl>
-                    <dt>Size</dt>
-                    <dd>@FileSize.Format(file.Size)</dd>
-                    <dt>Uploaded</dt>
-                    <dd><LocalTime Value="file.UploadedAt!.Value" /></dd>
-                    <dt>Link</dt>
-                    <dd>@link</dd>
-                </dl>
-
-                <footer>Click to open · double-click to download</footer>
-            </div>
-        </li>
-    }
-</ul>
-
-<p class="empty">
-    @(folder is null
-        ? "Your desktop is empty. Drop a file here and choose how long it stays."
-        : "This folder is empty. Drop files here and choose how long they stay.")
-</p>
+<DesktopIcons Folders="folders" Files="files" Now="now" CurrentFileId="FileId" BelowPath="folder is not null"
+              FolderHref="@(id => FolderHref(id))" FileHref="@(id => $"{ViewHref}/files/{id}")"
+              EmptyText="@(folder is null
+                  ? "Your desktop is empty. Drop a file here and choose how long it stays."
+                  : "This folder is empty. Drop files here and choose how long they stay.")" />
 
 <p class="drop-hint">Drop files or folders anywhere to upload · up to @FileSize.Format(FileUploadEndpoints.MaxFileSize) each</p>
 
@@ -409,8 +335,6 @@ else
 
         Navigation.NavigateTo(FolderId is { } current && ids.Contains(current) ? FolderHref(target.ParentId) : ViewHref);
     }
-
-    private static string? GridArea(int? column, int? row) => column is { } c && row is { } r ? $"grid-area: {r} / {c}" : null;
 
     private static string FolderHref(Guid? folderId) => folderId is { } id ? $"desktop/folders/{id}" : "desktop";
 
