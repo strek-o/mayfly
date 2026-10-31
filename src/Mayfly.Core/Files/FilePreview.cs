@@ -8,8 +8,9 @@ public static class FilePreview
 
     public static string? ContentTypeFor(string contentType) => contentType.ToLowerInvariant() switch
     {
-        "image/png" or "image/jpeg" or "image/gif" or "image/webp" or "image/avif" or "application/pdf" => contentType.ToLowerInvariant(),
-        var type when type.StartsWith("audio/", StringComparison.Ordinal) || type.StartsWith("video/", StringComparison.Ordinal) => type,
+        var type when type is "image/png" or "image/jpeg" or "image/gif" or "image/webp" or "image/avif" or "application/pdf"
+            or "audio/mpeg" or "audio/mp4" or "audio/ogg" or "audio/wav" or "audio/flac" or "audio/webm"
+            or "video/mp4" or "video/webm" or "video/ogg" => type,
         var type when type.StartsWith("text/", StringComparison.Ordinal) || type is "application/json" or "application/xml" => PlainText,
         _ => null
     };
