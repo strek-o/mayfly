@@ -52,14 +52,16 @@ public class MayflyDbContext(DbContextOptions<MayflyDbContext> options)
             link.HasOne<PasteThread>().WithMany().HasForeignKey(l => l.ThreadId).OnDelete(DeleteBehavior.NoAction);
             link.HasOne<FileItem>().WithMany().HasForeignKey(l => l.FileId).OnDelete(DeleteBehavior.NoAction);
             link.HasOne<Folder>().WithMany().HasForeignKey(l => l.FolderId).OnDelete(DeleteBehavior.NoAction);
+            link.HasOne<ApplicationUser>().WithMany().HasForeignKey(l => l.DesktopOwnerId).OnDelete(DeleteBehavior.NoAction);
             link.ToTable(table =>
             {
                 table.HasCheckConstraint("CK_ShareLinks_MaxViews", "[MaxViews] IS NULL OR [MaxViews] > 0");
                 table.HasCheckConstraint(
                     "CK_ShareLinks_Target",
-                    "([PasteId] IS NOT NULL AND [FileId] IS NULL AND [FolderId] IS NULL)"
-                    + " OR ([PasteId] IS NULL AND [FileId] IS NOT NULL AND [FolderId] IS NULL)"
-                    + " OR ([PasteId] IS NULL AND [FileId] IS NULL AND [FolderId] IS NOT NULL)");
+                    "([PasteId] IS NOT NULL AND [FileId] IS NULL AND [FolderId] IS NULL AND [DesktopOwnerId] IS NULL)"
+                    + " OR ([PasteId] IS NULL AND [FileId] IS NOT NULL AND [FolderId] IS NULL AND [DesktopOwnerId] IS NULL)"
+                    + " OR ([PasteId] IS NULL AND [FileId] IS NULL AND [FolderId] IS NOT NULL AND [DesktopOwnerId] IS NULL)"
+                    + " OR ([PasteId] IS NULL AND [FileId] IS NULL AND [FolderId] IS NULL AND [DesktopOwnerId] IS NOT NULL)");
                 table.HasCheckConstraint("CK_ShareLinks_Thread", "[ThreadId] IS NULL OR [PasteId] IS NOT NULL");
             });
         });

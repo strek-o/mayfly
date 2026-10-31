@@ -47,15 +47,25 @@
         </form>
     }
 
-    <div class="actions">
-        <a class="button" href="files/@File.Id/download" data-enhance-nav="false">Download</a>
-        <form method="post" @formname="delete-file" @onsubmit="DeleteAsync" data-confirm="Delete this file with all its links?">
-            <AntiforgeryToken />
-            <button type="submit" class="button-danger">Delete</button>
-        </form>
-    </div>
+    @if (ShareToken is null)
+    {
+        <div class="actions">
+            <a class="button" href="files/@File.Id/download" data-enhance-nav="false">Download</a>
+            <form method="post" @formname="delete-file" @onsubmit="DeleteAsync" data-confirm="Delete this file with all its links?">
+                <AntiforgeryToken />
+                <button type="submit" class="button-danger">Delete</button>
+            </form>
+        </div>
 
-    <ShareLinksPanel FileId="File.Id" />
+        <ShareLinksPanel FileId="File.Id" />
+    }
+    else
+    {
+        <form method="post" action="@($"s/{ShareToken}/download")">
+            <AntiforgeryToken />
+            <button type="submit" name="FileId" value="@File.Id">Download</button>
+        </form>
+    }
 </Window>
 
 @code {
@@ -70,6 +80,9 @@
 
     [Parameter, EditorRequired]
     public IReadOnlyList<(Guid Id, string Path)> Folders { get; set; } = default!;
+
+    [Parameter]
+    public string? ShareToken { get; set; }
 
     private async Task DeleteAsync()
     {

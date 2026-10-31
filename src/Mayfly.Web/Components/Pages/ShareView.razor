@@ -12,7 +12,7 @@
 @inject ShareSession Session
 @inject NavigationManager Navigation
 
-<PageTitle>@(content?.Title ?? sharedFolder?.Current.Name ?? sharedFile?.FileName ?? "Shared with you")</PageTitle>
+<PageTitle>@(content?.Title ?? sharedFolder?.Current.Name ?? sharedFile?.FileName ?? DesktopTitle ?? "Shared with you")</PageTitle>
 
 <HeadContent>
     <meta name="robots" content="noindex" />
@@ -175,6 +175,43 @@ else if (sharedFile is not null)
         </section>
     </div>
 }
+else if (sharedDesktop is not null)
+{
+    var current = sharedDesktop.Current;
+    var viewHref = current is null ? $"s/{Token}" : $"s/{Token}?folder={current.Id}";
+
+    <header class="guest-bar">
+        <a class="brand" href="">Mayfly</a>
+        <span>Shared with you</span>
+    </header>
+
+    @if (current is not null)
+    {
+        <nav class="path" aria-label="Location">
+            <a class="crumb" href="@($"s/{Token}")">Desktop</a>
+            @foreach (var ancestor in sharedDesktop.AllFolders.Ancestors(current))
+            {
+                <a class="crumb" href="@($"s/{Token}?folder={ancestor.Id}")">@ancestor.Name</a>
+            }
+            <span aria-current="page">@current.Name</span>
+        </nav>
+    }
+
+    @if (openFile is not null)
+    {
+        <FileWindow File="openFile" Now="now" CloseHref="@viewHref" Folders="[]" ShareToken="@Token" />
+    }
+    else
+    {
+        <h1 class="visually-hidden">@DesktopTitle</h1>
+    }
+
+    <DesktopIcons Folders="sharedDesktop.Folders" Files="desktopFiles" Now="now" CurrentFileId="openFile?.Id"
+                  BelowPath="current is not null" ReadOnly="true"
+                  FolderHref="@(id => $"s/{Token}?folder={id}")"
+                  FileHref="@(id => current is null ? $"s/{Token}?file={id}" : $"s/{Token}?folder={current.Id}&file={id}")"
+                  EmptyText="@(current is null ? "This desktop is empty." : "This folder is empty.")" />
+}
 else if (link is not null)
 {
     <div class="guest-center">
@@ -237,6 +274,9 @@ else if (link is not null)
     [SupplyParameterFromQuery(Name = "folder")]
     public Guid? FolderId { get; set; }
 
+    [SupplyParameterFromQuery(Name = "file")]
+    public Guid? OpenFileId { get; set; }
+
     [SupplyParameterFromForm(FormName = "reveal")]
     private string? Password { get; set; }
 
@@ -248,11 +288,23 @@ else if (link is not null)
 
     private SharedFolder? sharedFolder;
 
+    private DesktopContent? sharedDesktop;
+
+    private List<(FileItem File, string Link)> desktopFiles = [];
+
+    private FileItem? openFile;
+
     private bool passwordRejected;
 
     private readonly DateTimeOffset now = DateTimeOffset.UtcNow;
 
-    private string Kind => link?.FileId is not null ? "file" : link?.FolderId is not null ? "folder" : "paste";
+    private string Kind =>
+        link?.FileId is not null ? "file"
+        : link?.FolderId is not null ? "folder"
+        : link?.DesktopOwnerId is not null ? "desktop"
+        : "paste";
+
+    private string? DesktopTitle => sharedDesktop is null ? null : sharedDesktop.Current?.Name ?? "Desktop";
 
     protected override async Task OnInitializedAsync()
     {
@@ -292,6 +344,12 @@ else if (link is not null)
                             .OrderBy(file => file.FileName)
                             .Select(file => new SharedFolderFile(file.Id, file.FileName, file.Size, file.ExpiresAt))
                             .ToListAsync());
+                }
+                else if (link.DesktopOwnerId is { } desktopOwnerId)
+                {
+                    sharedDesktop = await DesktopContent.LoadAsync(db, desktopOwnerId, FolderId, now);
+                    desktopFiles = sharedDesktop.Files.Select(file => (file, "")).ToList();
+                    openFile = sharedDesktop.Files.Find(file => file.Id == OpenFileId);
                 }
                 else
                 {

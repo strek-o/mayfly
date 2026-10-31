@@ -22,6 +22,11 @@
 <PageTitle>@(openFile?.FileName ?? folder?.Name ?? "Desktop")</PageTitle>
 
 <SectionContent SectionName="menubar-actions">
+    @if (FolderId is null)
+    {
+        <a class="button button-quiet share-desktop" href="desktop?share=true">Share</a>
+    }
+
     <details class="new-folder" data-menu open="@showFolderForm">
         <summary class="button button-quiet">New folder</summary>
 
@@ -97,6 +102,17 @@ else if (folder is not null && Share)
         <ShareLinksPanel FolderId="folder.Id" />
     </Window>
 }
+else if (Share)
+{
+    <Window Title="Desktop" CloseHref="desktop">
+        <p class="folder-note">
+            A link shows visitors your whole desktop as you arranged it, with every folder and file, including anything
+            you add later. Visitors can open folders and download files, but they can't change anything.
+        </p>
+
+        <ShareLinksPanel DesktopOwnerId="@ownerId" />
+    </Window>
+}
 else
 {
     <h1 class="visually-hidden">@(folder?.Name ?? "Desktop")</h1>
@@ -147,6 +163,7 @@ else
     <button type="button" role="menuitem" data-action="new-folder">New folder</button>
     <button type="button" role="menuitem" data-action="upload">Upload files</button>
     <button type="button" role="menuitem" data-action="upload-folder">Upload folder</button>
+    <a role="menuitem" href="@ViewHref?share=true">@(folder is null ? "Share desktop" : "Share folder")</a>
 </div>
 
 <div class="context-menu" role="menu" aria-label="File" data-context-menu="file" hidden>
@@ -227,42 +244,17 @@ else
             ?? throw new InvalidOperationException("Signed-in user has no id claim.");
 
         await using var db = await DbFactory.CreateDbContextAsync();
-        allFolders = await db.Folders
-            .AsNoTracking()
-            .Where(f => f.OwnerId == ownerId)
-            .OrderBy(f => f.Name)
-            .ToListAsync();
-
-        if (FolderId is { } folderId)
+        var content = await DesktopContent.LoadAsync(db, ownerId, FolderId, now);
+        allFolders = content.AllFolders;
+        folder = content.Current;
+        if (FolderId is not null && folder is null)
         {
-            folder = allFolders.SingleOrDefault(f => f.Id == folderId);
-            if (folder is null)
-            {
-                Navigation.NotFound();
-                return;
-            }
+            Navigation.NotFound();
+            return;
         }
 
-        var fileCounts = await db.Files
-            .Where(file => file.OwnerId == ownerId && file.UploadedAt != null && file.FolderId != null)
-            .WhereNotExpired(now)
-            .GroupBy(file => file.FolderId!.Value)
-            .Select(group => new { FolderId = group.Key, Count = group.Count() })
-            .ToDictionaryAsync(item => item.FolderId, item => item.Count);
-
-        folders = allFolders
-            .Where(f => f.ParentId == FolderId)
-            .Select(f => (f, fileCounts.GetValueOrDefault(f.Id) + allFolders.Count(child => child.ParentId == f.Id)))
-            .ToList();
-
-        var items = await db.Files
-            .AsNoTracking()
-            .Where(file => file.OwnerId == ownerId && file.UploadedAt != null && file.FolderId == FolderId)
-            .WhereNotExpired(now)
-            .OrderBy(file => file.ExpiresAt == null)
-            .ThenBy(file => file.ExpiresAt)
-            .ThenByDescending(file => file.UploadedAt)
-            .ToListAsync();
+        folders = content.Folders;
+        var items = content.Files;
 
         var fileIds = items.Select(file => file.Id).ToList();
         var links = await db.ShareLinks

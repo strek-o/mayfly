@@ -24,6 +24,7 @@ public static class ShareLinkRules
         return links.Where(link =>
             livePastes.Any(paste => paste.Id == link.PasteId)
             || liveFiles.Any(file => file.Id == link.FileId)
-            || db.Folders.Any(folder => folder.Id == link.FolderId));
+            || db.Folders.Any(folder => folder.Id == link.FolderId)
+            || link.DesktopOwnerId != null);
     }
 }

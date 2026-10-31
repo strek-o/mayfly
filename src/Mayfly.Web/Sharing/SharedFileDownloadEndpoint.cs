@@ -39,7 +39,7 @@ public static class SharedFileDownloadEndpoint
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
         var link = await db.ShareLinks
             .AsNoTracking()
-            .Where(l => l.TokenHash == tokenHash && (l.FileId != null || l.FolderId != null))
+            .Where(l => l.TokenHash == tokenHash && (l.FileId != null || l.FolderId != null || l.DesktopOwnerId != null))
             .WhereOpen(now)
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -54,6 +54,9 @@ public static class SharedFileDownloadEndpoint
         {
             null => null,
             { FileId: { } fileId } => await liveFiles.SingleOrDefaultAsync(f => f.Id == fileId, cancellationToken),
+            { DesktopOwnerId: { } ownerId } => await liveFiles.SingleOrDefaultAsync(
+                f => f.Id == requestedFileId && f.OwnerId == ownerId,
+                cancellationToken),
             _ => await liveFiles.SingleOrDefaultAsync(
                 f => f.Id == requestedFileId && f.FolderId != null && folderIds.Contains(f.FolderId.Value),
                 cancellationToken)

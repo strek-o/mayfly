@@ -128,6 +128,9 @@
     [Parameter]
     public Guid? FolderId { get; set; }
 
+    [Parameter]
+    public string? DesktopOwnerId { get; set; }
+
     [SupplyParameterFromForm(FormName = "create-share-link")]
     private LinkInputModel LinkInput { get; set; } = default!;
 
@@ -144,9 +147,9 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (new[] { PasteId, FileId, FolderId }.Count(target => target is not null) != 1)
+        if (new object?[] { PasteId, FileId, FolderId, DesktopOwnerId }.Count(target => target is not null) != 1)
         {
-            throw new InvalidOperationException("Share links need exactly one paste, file or folder.");
+            throw new InvalidOperationException("Share links need exactly one paste, file, folder or desktop.");
         }
 
         LinkInput ??= new();
@@ -164,6 +167,7 @@
             ThreadId = ThreadId,
             FileId = FileId,
             FolderId = FolderId,
+            DesktopOwnerId = DesktopOwnerId,
             TokenHash = ShareToken.Hash(token),
             ProtectedToken = TokenProtector.Protect(token),
             CanAppend = PasteId is not null && LinkInput.CanAppend,
@@ -247,7 +251,8 @@
     };
 
     private Expression<Func<ShareLink, bool>> InScope =>
-        link => link.PasteId == PasteId && link.ThreadId == ThreadId && link.FileId == FileId && link.FolderId == FolderId;
+        link => link.PasteId == PasteId && link.ThreadId == ThreadId && link.FileId == FileId && link.FolderId == FolderId
+            && link.DesktopOwnerId == DesktopOwnerId;
 
     private sealed class LinkInputModel
     {

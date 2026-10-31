@@ -245,6 +245,9 @@ namespace Mayfly.Web.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("DesktopOwnerId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<DateTimeOffset?>("ExpiresAt")
                         .HasColumnType("datetimeoffset");
 
@@ -283,6 +286,8 @@ namespace Mayfly.Web.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DesktopOwnerId");
+
                     b.HasIndex("FileId");
 
                     b.HasIndex("FolderId");
@@ -298,7 +303,7 @@ namespace Mayfly.Web.Data.Migrations
                         {
                             t.HasCheckConstraint("CK_ShareLinks_MaxViews", "[MaxViews] IS NULL OR [MaxViews] > 0");
 
-                            t.HasCheckConstraint("CK_ShareLinks_Target", "([PasteId] IS NOT NULL AND [FileId] IS NULL AND [FolderId] IS NULL) OR ([PasteId] IS NULL AND [FileId] IS NOT NULL AND [FolderId] IS NULL) OR ([PasteId] IS NULL AND [FileId] IS NULL AND [FolderId] IS NOT NULL)");
+                            t.HasCheckConstraint("CK_ShareLinks_Target", "([PasteId] IS NOT NULL AND [FileId] IS NULL AND [FolderId] IS NULL AND [DesktopOwnerId] IS NULL) OR ([PasteId] IS NULL AND [FileId] IS NOT NULL AND [FolderId] IS NULL AND [DesktopOwnerId] IS NULL) OR ([PasteId] IS NULL AND [FileId] IS NULL AND [FolderId] IS NOT NULL AND [DesktopOwnerId] IS NULL) OR ([PasteId] IS NULL AND [FileId] IS NULL AND [FolderId] IS NULL AND [DesktopOwnerId] IS NOT NULL)");
 
                             t.HasCheckConstraint("CK_ShareLinks_Thread", "[ThreadId] IS NULL OR [PasteId] IS NOT NULL");
                         });
@@ -552,6 +557,11 @@ namespace Mayfly.Web.Data.Migrations
 
             modelBuilder.Entity("Mayfly.Core.Data.ShareLink", b =>
                 {
+                    b.HasOne("Mayfly.Core.Data.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("DesktopOwnerId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("Mayfly.Core.Data.FileItem", null)
                         .WithMany()
                         .HasForeignKey("FileId")

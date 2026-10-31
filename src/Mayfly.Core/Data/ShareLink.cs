@@ -12,6 +12,8 @@ public class ShareLink
 
     public Guid? FolderId { get; set; }
 
+    public string? DesktopOwnerId { get; set; }
+
     public required byte[] TokenHash { get; set; }
 
     public string? ProtectedToken { get; set; }

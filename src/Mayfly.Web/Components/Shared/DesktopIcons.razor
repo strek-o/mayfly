@@ -6,7 +6,8 @@
     @foreach (var (item, count) in Folders)
     {
         <li class="item folder" style="@GridArea(item.GridColumn, item.GridRow)">
-            <a href="@FolderHref(item.Id)" data-folder-target="@item.Id" data-share="desktop/folders/@item.Id?share=true">
+            <a href="@FolderHref(item.Id)" data-folder-target="@(ReadOnly ? null : item.Id)"
+               data-share="@(ReadOnly ? null : $"desktop/folders/{item.Id}?share=true")">
                 <span class="glyph">
                     <svg aria-hidden="true"><use href="#folder-glyph" /></svg>
                 </span>
@@ -27,8 +28,8 @@
         <li class="item @(soon ? "soon" : null)" style="@GridArea(file.GridColumn, file.GridRow)"
             data-expires="@file.ExpiresAt?.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")">
             <a href="@FileHref(file.Id)" aria-describedby="card-@file.Id"
-               aria-current="@(file.Id == CurrentFileId ? "true" : null)" data-download="files/@file.Id/download"
-               data-file-id="@file.Id">
+               aria-current="@(file.Id == CurrentFileId ? "true" : null)"
+               data-download="@(ReadOnly ? null : $"files/{file.Id}/download")" data-file-id="@(ReadOnly ? null : file.Id)">
                 <span class="glyph">
                     <svg aria-hidden="true"><use href="#file-glyph" /></svg>
                     @if (extension is { Length: > 0 and <= 4 })
@@ -66,11 +67,14 @@
                     <dd>@FileSize.Format(file.Size)</dd>
                     <dt>Uploaded</dt>
                     <dd><LocalTime Value="file.UploadedAt!.Value" /></dd>
-                    <dt>Link</dt>
-                    <dd>@link</dd>
+                    @if (!ReadOnly)
+                    {
+                        <dt>Link</dt>
+                        <dd>@link</dd>
+                    }
                 </dl>
 
-                <footer>Click to open · double-click to download</footer>
+                <footer>@(ReadOnly ? "Click to open" : "Click to open · double-click to download")</footer>
             </div>
         </li>
     }
@@ -102,6 +106,9 @@
 
     [Parameter]
     public bool BelowPath { get; set; }
+
+    [Parameter]
+    public bool ReadOnly { get; set; }
 
     private static string? GridArea(int? column, int? row) => column is { } c && row is { } r ? $"grid-area: {r} / {c}" : null;
 }

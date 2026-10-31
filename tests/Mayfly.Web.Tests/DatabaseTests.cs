@@ -581,6 +581,97 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     }
 
     [Fact]
+    public async Task DesktopWindow_CreatesALinkOnlyTheOwnerCanRevoke()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var (other, _) = await RegisterAsync();
+        const string url = "/desktop?share=true";
+
+        var created = await owner.PostAsync(
+            url,
+            Form(await GetAntiforgeryTokenAsync(owner, url), ("_handler", "create-share-link"), ("LinkInput.Lifetime", "OneDay")),
+            Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, created.StatusCode);
+        Guid linkId;
+        await using (var db = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            linkId = await db.ShareLinks
+                .Where(link => link.DesktopOwnerId == ownerId && link.PasteId == null && link.FileId == null && link.FolderId == null)
+                .Select(link => link.Id)
+                .SingleAsync(Ct);
+        }
+
+        await other.PostAsync(
+            url,
+            Form(await GetAntiforgeryTokenAsync(other, url), ("_handler", "revoke-share-link"), ("RevokeId", linkId.ToString())),
+            Ct);
+        await using (var db = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            Assert.True(await db.ShareLinks.AnyAsync(link => link.Id == linkId && link.RevokedAt == null, Ct));
+        }
+
+        await owner.PostAsync(
+            url,
+            Form(await GetAntiforgeryTokenAsync(owner, url), ("_handler", "revoke-share-link"), ("RevokeId", linkId.ToString())),
+            Ct);
+        await using (var db = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            Assert.True(await db.ShareLinks.AnyAsync(link => link.Id == linkId && link.RevokedAt != null, Ct));
+        }
+    }
+
+    [Fact]
+    public async Task DesktopLink_ShowsOnlyTheOwnersDesktopInTheirLayout()
+    {
+        var (_, ownerId) = await RegisterAsync();
+        var (_, otherId) = await RegisterAsync();
+        var folderId = await SeedFolderAsync(ownerId);
+        var foreignFolderId = await SeedFolderAsync(otherId);
+        var now = DateTimeOffset.UtcNow;
+        var (onDesktop, _) = await SeedFileAsync(ownerId, now, uploaded: true, fileName: "on-desktop.txt");
+        var (inFolder, _) = await SeedFileAsync(ownerId, now, uploaded: true, fileName: "in-folder.txt", folderId: folderId);
+        var (foreign, _) = await SeedFileAsync(otherId, now, uploaded: true, fileName: "someone-elses.txt");
+        await using (var db = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            await db.Files.Where(f => f.Id == onDesktop.Id).ExecuteUpdateAsync(set => set.SetProperty(f => f.GridColumn, 3).SetProperty(f => f.GridRow, 2), Ct);
+        }
+
+        var token = await SeedDesktopLinkAsync(ownerId);
+        var visitor = CreateClient();
+        await visitor.PostAsync(
+            $"/s/{token}",
+            Form(await GetAntiforgeryTokenAsync(visitor, $"/s/{token}"), ("_handler", "reveal")),
+            Ct);
+
+        var desktop = await visitor.GetStringAsync($"/s/{token}", Ct);
+        Assert.Contains("on-desktop.txt", desktop);
+        Assert.Contains("grid-area: 2 / 3", desktop);
+        Assert.Contains($"?folder={folderId}", desktop);
+        Assert.DoesNotContain("in-folder.txt", desktop);
+        Assert.DoesNotContain("someone-elses.txt", desktop);
+        Assert.DoesNotContain("data-file-id", desktop);
+
+        var inside = await visitor.GetStringAsync($"/s/{token}?folder={folderId}", Ct);
+        Assert.Contains("in-folder.txt", inside);
+
+        var forged = await visitor.GetStringAsync($"/s/{token}?folder={foreignFolderId}&file={foreign.Id}", Ct);
+        Assert.Contains("on-desktop.txt", forged);
+        Assert.DoesNotContain("someone-elses.txt", forged);
+
+        var window = await visitor.GetStringAsync($"/s/{token}?folder={folderId}&file={inFolder.Id}", Ct);
+        Assert.Contains($"name=\"FileId\" value=\"{inFolder.Id}\"", window);
+
+        var antiforgery = AntiforgeryField.Match(window).Groups[1].Value;
+        var ownDownload = await visitor.PostAsync($"/s/{token}/download", Form(antiforgery, ("FileId", inFolder.Id.ToString())), Ct);
+        var foreignDownload = await visitor.PostAsync($"/s/{token}/download", Form(antiforgery, ("FileId", foreign.Id.ToString())), Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, ownDownload.StatusCode);
+        Assert.Contains(inFolder.BlobName, ownDownload.Headers.Location!.ToString());
+        Assert.Equal(HttpStatusCode.NotFound, foreignDownload.StatusCode);
+    }
+
+    [Fact]
     public async Task GuestEntry_LandsInTheChosenThread()
     {
         var (_, ownerId) = await RegisterAsync();
@@ -906,6 +997,21 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         db.Folders.Add(folder);
         await db.SaveChangesAsync(Ct);
         return folder.Id;
+    }
+
+    private async Task<string> SeedDesktopLinkAsync(string ownerId)
+    {
+        var token = ShareToken.Generate();
+
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        db.ShareLinks.Add(new ShareLink
+        {
+            DesktopOwnerId = ownerId,
+            TokenHash = ShareToken.Hash(token),
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+        await db.SaveChangesAsync(Ct);
+        return token;
     }
 
     private async Task<string> SeedFolderLinkAsync(Guid folderId)

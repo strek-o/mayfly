@@ -132,6 +132,16 @@
   overflow-wrap: anywhere;
 }
 
+.path {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 1.75rem;
+  margin: 0.875rem 1.25rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
 .crumb {
   color: var(--ink-soft);
   font-size: 0.875rem;

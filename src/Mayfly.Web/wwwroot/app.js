@@ -48,7 +48,7 @@ const itemDragType = "application/x-mayfly-item";
 
 document.addEventListener("dragstart", (event) => {
   const link = event.target.closest?.(".desktop .item > a");
-  if (!link) {
+  if (!link || !itemId(link)) {
     return;
   }
 
