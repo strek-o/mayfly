@@ -220,14 +220,13 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
-  clearSelection();
   const invoker = closeContextMenu();
   const menu = document.querySelector("details[data-menu][open]");
   if (invoker) {
     invoker.focus();
   } else if (menu) {
     menu.open = false;
-  } else {
+  } else if (!clearSelection()) {
     document.querySelector("[data-window-close]")?.click();
   }
 });
@@ -235,12 +234,15 @@ document.addEventListener("keydown", (event) => {
 let marquee = null;
 
 function clearSelection() {
-  for (const item of document.querySelectorAll(".desktop > .item.selected")) {
+  const selected = document.querySelectorAll(".desktop > .item.selected");
+  for (const item of selected) {
     item.classList.remove("selected");
   }
+  return selected.length > 0;
 }
 
 function endMarquee() {
+  marquee?.grid.classList.remove("dragging");
   marquee?.box?.remove();
   marquee = null;
 }
@@ -254,6 +256,7 @@ document.addEventListener("mousedown", (event) => {
   document.activeElement?.blur();
   clearSelection();
   marquee = { x: event.clientX, y: event.clientY, grid: event.target };
+  marquee.grid.classList.add("dragging");
 });
 
 document.addEventListener("mousemove", (event) => {
