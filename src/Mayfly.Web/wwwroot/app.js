@@ -57,6 +57,11 @@ document.addEventListener("dragstart", (event) => {
   }
   event.dataTransfer.setData(itemDragType, itemId(link));
   event.dataTransfer.effectAllowed = "move";
+  link.closest(".desktop").classList.add("dragging");
+});
+
+document.addEventListener("dragend", () => {
+  document.querySelector(".desktop.dragging")?.classList.remove("dragging");
 });
 
 function itemId(link) {

@@ -167,6 +167,12 @@
     visibility 0s 250ms;
 }
 
+.desktop.dragging .item .card {
+  opacity: 0;
+  visibility: hidden;
+  transition: none;
+}
+
 .card header {
   display: flex;
   flex-direction: column;
