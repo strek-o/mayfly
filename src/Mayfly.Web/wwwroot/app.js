@@ -38,7 +38,9 @@ document.addEventListener("click", (event) => {
 
 document.addEventListener("dblclick", (event) => {
   const link = event.target.closest("a[data-download]");
-  if (link) {
+  if (link?.dataset.open) {
+    window.open(link.dataset.open, "_blank", "noopener");
+  } else if (link) {
     location.href = link.dataset.download;
   }
 });
@@ -326,7 +328,8 @@ function fillContextMenu(menu, invoker) {
     if (item instanceof HTMLInputElement) {
       item.value = value;
     } else {
-      item.setAttribute("href", value);
+      item.hidden = value === undefined;
+      item.setAttribute("href", value ?? "");
     }
   }
 }
@@ -360,7 +363,7 @@ document.addEventListener("contextmenu", (event) => {
   menu.style.left = `${Math.max(8, Math.min(anchor.left, innerWidth - width - 8))}px`;
   menu.style.top = `${Math.max(8, Math.min(anchor.bottom, innerHeight - height - 8))}px`;
   openContextMenu = { menu, invoker: invoker ?? document.activeElement };
-  menu.querySelector('[role="menuitem"]').focus();
+  menu.querySelector('[role="menuitem"]:not([hidden])').focus();
 });
 
 document.addEventListener("keydown", (event) => {
@@ -368,7 +371,9 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
-  const items = [...openContextMenu.menu.querySelectorAll('[role="menuitem"]')];
+  const items = [
+    ...openContextMenu.menu.querySelectorAll('[role="menuitem"]:not([hidden])'),
+  ];
   const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
   if (step) {
     event.preventDefault();

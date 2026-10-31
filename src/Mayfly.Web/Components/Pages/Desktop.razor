@@ -167,7 +167,8 @@ else
 </div>
 
 <div class="context-menu" role="menu" aria-label="File" data-context-menu="file" hidden>
-    <a role="menuitem" data-from="href">Open</a>
+    <a role="menuitem" data-from="open" target="_blank" rel="noopener" data-enhance-nav="false">Open</a>
+    <a role="menuitem" data-from="href">Details</a>
     <a role="menuitem" data-from="download" data-enhance-nav="false">Download</a>
     <form method="post" @formname="delete-desktop-file" @onsubmit="DeleteFileAsync"
           data-confirm="Delete this file with all its links?">

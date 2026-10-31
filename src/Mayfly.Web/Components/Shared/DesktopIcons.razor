@@ -1,4 +1,5 @@
 @using Mayfly.Core.Data
+@using Mayfly.Core.Files
 @using Mayfly.Web.Files
 @using Mayfly.Web.Time
 
@@ -36,7 +37,8 @@
             data-expires="@file.ExpiresAt?.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")">
             <a href="@FileHref(file.Id)" aria-describedby="card-@file.Id"
                aria-current="@(file.Id == CurrentFileId ? "true" : null)"
-               data-download="@(ReadOnly ? null : $"files/{file.Id}/download")" data-file-id="@(ReadOnly ? null : file.Id)">
+               data-download="@(ReadOnly ? null : $"files/{file.Id}/download")" data-file-id="@(ReadOnly ? null : file.Id)"
+               data-open="@(ReadOnly || !FilePreview.CanOpen(file.ContentType) ? null : $"files/{file.Id}/open")">
                 <span class="glyph">
                     <svg aria-hidden="true"><use href="#file-glyph" /></svg>
                     @if (extension is { Length: > 0 and <= 4 })
@@ -81,7 +83,11 @@
                     }
                 </dl>
 
-                <footer>@(ReadOnly ? "Click to open" : "Click to open · double-click to download")</footer>
+                <footer>
+                    @(ReadOnly ? "Click for details"
+                        : FilePreview.CanOpen(file.ContentType) ? "Click for details · double-click to open"
+                        : "Click for details · double-click to download")
+                </footer>
             </div>
         </li>
     }

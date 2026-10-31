@@ -23,16 +23,13 @@ public sealed class FileStorage(BlobServiceClient blobService)
     public Task<Uri> GetUploadUriAsync(string blobName, CancellationToken cancellationToken) =>
         CreateSasUriAsync(CreateSas(blobName, BlobSasPermissions.Create, UploadLifetime), cancellationToken);
 
-    public Task<Uri> GetDownloadUriAsync(string blobName, string fileName, CancellationToken cancellationToken)
-    {
-        var disposition = new ContentDispositionHeaderValue("attachment");
-        disposition.SetHttpFileName(fileName);
+    public Task<Uri> GetDownloadUriAsync(string blobName, string fileName, CancellationToken cancellationToken) =>
+        GetReadUriAsync(blobName, fileName, "attachment", DownloadContentType, cancellationToken);
 
-        var sas = CreateSas(blobName, BlobSasPermissions.Read, DownloadLifetime);
-        sas.ContentDisposition = disposition.ToString();
-        sas.ContentType = DownloadContentType;
-        return CreateSasUriAsync(sas, cancellationToken);
-    }
+    public Task<Uri> GetOpenUriAsync(string blobName, string fileName, string contentType, CancellationToken cancellationToken) =>
+        FilePreview.ContentTypeFor(contentType) is { } openType
+            ? GetReadUriAsync(blobName, fileName, "inline", openType, cancellationToken)
+            : GetDownloadUriAsync(blobName, fileName, cancellationToken);
 
     public async Task<long?> GetSizeAsync(string blobName, CancellationToken cancellationToken)
     {
@@ -49,6 +46,22 @@ public sealed class FileStorage(BlobServiceClient blobService)
 
     public Task DeleteAsync(string blobName, CancellationToken cancellationToken) =>
         container.GetBlobClient(blobName).DeleteIfExistsAsync(cancellationToken: cancellationToken);
+
+    private Task<Uri> GetReadUriAsync(
+        string blobName,
+        string fileName,
+        string dispositionType,
+        string contentType,
+        CancellationToken cancellationToken)
+    {
+        var disposition = new ContentDispositionHeaderValue(dispositionType);
+        disposition.SetHttpFileName(fileName);
+
+        var sas = CreateSas(blobName, BlobSasPermissions.Read, DownloadLifetime);
+        sas.ContentDisposition = disposition.ToString();
+        sas.ContentType = contentType;
+        return CreateSasUriAsync(sas, cancellationToken);
+    }
 
     private BlobSasBuilder CreateSas(string blobName, BlobSasPermissions permissions, TimeSpan lifetime)
     {

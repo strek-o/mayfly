@@ -11,12 +11,13 @@ public static class FileDownloadEndpoint
 {
     public static IEndpointRouteBuilder MapFileDownloadEndpoint(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/files/{id:guid}/download", DownloadAsync).RequireAuthorization();
+        app.MapGet("/files/{id:guid}/{mode:regex(^(download|open)$)}", RedirectAsync).RequireAuthorization();
         return app;
     }
 
-    private static async Task<IResult> DownloadAsync(
+    private static async Task<IResult> RedirectAsync(
         Guid id,
+        string mode,
         ClaimsPrincipal user,
         UserManager<ApplicationUser> userManager,
         FileStorage storage,
@@ -38,7 +39,9 @@ public static class FileDownloadEndpoint
             return Results.NotFound();
         }
 
-        var downloadUrl = await storage.GetDownloadUriAsync(file.BlobName, file.FileName, cancellationToken);
-        return Results.Redirect(downloadUrl.ToString());
+        var url = mode == "open"
+            ? await storage.GetOpenUriAsync(file.BlobName, file.FileName, file.ContentType, cancellationToken)
+            : await storage.GetDownloadUriAsync(file.BlobName, file.FileName, cancellationToken);
+        return Results.Redirect(url.ToString());
     }
 }

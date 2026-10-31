@@ -77,7 +77,9 @@ public static class SharedFileDownloadEndpoint
         }
 
         session.Start(context, link.Id, token);
-        var downloadUrl = await storage.GetDownloadUriAsync(file.BlobName, file.FileName, cancellationToken);
-        return Results.Redirect(downloadUrl.ToString());
+        var url = form["Open"] == "true"
+            ? await storage.GetOpenUriAsync(file.BlobName, file.FileName, file.ContentType, cancellationToken)
+            : await storage.GetDownloadUriAsync(file.BlobName, file.FileName, cancellationToken);
+        return Results.Redirect(url.ToString());
     }
 }

@@ -837,6 +837,55 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     }
 
     [Fact]
+    public async Task OpenFile_ServesSafeTypesInlineAndTheRestAsDownloads()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var (other, _) = await RegisterAsync();
+        var now = DateTimeOffset.UtcNow;
+        var (text, _) = await SeedFileAsync(ownerId, now, uploaded: true, fileName: "notes.html");
+        var (binary, _) = await SeedFileAsync(ownerId, now, uploaded: true, fileName: "tool.exe");
+        await using (var db = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            await db.Files.Where(f => f.Id == text.Id).ExecuteUpdateAsync(set => set.SetProperty(f => f.ContentType, "text/html"), Ct);
+            await db.Files.Where(f => f.Id == binary.Id).ExecuteUpdateAsync(set => set.SetProperty(f => f.ContentType, "application/octet-stream"), Ct);
+        }
+
+        var openedText = Uri.UnescapeDataString((await owner.GetAsync($"/files/{text.Id}/open", Ct)).Headers.Location!.ToString());
+        var downloadedText = Uri.UnescapeDataString((await owner.GetAsync($"/files/{text.Id}/download", Ct)).Headers.Location!.ToString());
+        var openedBinary = Uri.UnescapeDataString((await owner.GetAsync($"/files/{binary.Id}/open", Ct)).Headers.Location!.ToString());
+        var foreign = await other.GetAsync($"/files/{text.Id}/open", Ct);
+
+        Assert.Contains("rscd=inline", openedText);
+        Assert.Contains("rsct=text/plain;+charset=utf-8", openedText);
+        Assert.DoesNotContain("text/html", openedText);
+        Assert.Contains("rscd=attachment", downloadedText);
+        Assert.Contains("rscd=attachment", openedBinary);
+        Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
+    }
+
+    [Fact]
+    public async Task DesktopLink_OpensFilesForGuests()
+    {
+        var (_, ownerId) = await RegisterAsync();
+        var (file, _) = await SeedFileAsync(ownerId, DateTimeOffset.UtcNow, uploaded: true, fileName: "readme.txt");
+        var token = await SeedDesktopLinkAsync(ownerId);
+        var visitor = CreateClient();
+        await visitor.PostAsync(
+            $"/s/{token}",
+            Form(await GetAntiforgeryTokenAsync(visitor, $"/s/{token}"), ("_handler", "reveal")),
+            Ct);
+        var window = await visitor.GetStringAsync($"/s/{token}?file={file.Id}", Ct);
+        var antiforgery = AntiforgeryField.Match(window).Groups[1].Value;
+
+        var opened = await visitor.PostAsync($"/s/{token}/download", Form(antiforgery, ("FileId", file.Id.ToString()), ("Open", "true")), Ct);
+        var downloaded = await visitor.PostAsync($"/s/{token}/download", Form(antiforgery, ("FileId", file.Id.ToString())), Ct);
+
+        Assert.Contains("name=\"Open\"", window);
+        Assert.Contains("rscd=inline", Uri.UnescapeDataString(opened.Headers.Location!.ToString()));
+        Assert.Contains("rscd=attachment", Uri.UnescapeDataString(downloaded.Headers.Location!.ToString()));
+    }
+
+    [Fact]
     public async Task GuestEntry_LandsInTheChosenThread()
     {
         var (_, ownerId) = await RegisterAsync();

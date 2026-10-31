@@ -62,3 +62,8 @@ dd {
 .actions form {
   margin: 0;
 }
+
+.guest-actions {
+  display: flex;
+  gap: 0.5rem;
+}

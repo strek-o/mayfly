@@ -50,7 +50,11 @@
     @if (ShareToken is null)
     {
         <div class="actions">
-            <a class="button" href="files/@File.Id/download" data-enhance-nav="false">Download</a>
+            @if (CanOpen)
+            {
+                <a class="button" href="files/@File.Id/open" target="_blank" rel="noopener" data-enhance-nav="false">Open</a>
+            }
+            <a class="button @(CanOpen ? "button-quiet" : null)" href="files/@File.Id/download" data-enhance-nav="false">Download</a>
             <form method="post" @formname="delete-file" @onsubmit="DeleteAsync" data-confirm="Delete this file with all its links?">
                 <AntiforgeryToken />
                 <button type="submit" class="button-danger">Delete</button>
@@ -61,9 +65,14 @@
     }
     else
     {
-        <form method="post" action="@($"s/{ShareToken}/download")">
+        <form class="guest-actions" method="post" action="@($"s/{ShareToken}/download")">
             <AntiforgeryToken />
-            <button type="submit" name="FileId" value="@File.Id">Download</button>
+            <input type="hidden" name="FileId" value="@File.Id" />
+            @if (CanOpen)
+            {
+                <button type="submit" name="Open" value="true" formtarget="_blank">Open</button>
+            }
+            <button type="submit" class="@(CanOpen ? "button-quiet" : null)">Download</button>
         </form>
     }
 </Window>
@@ -83,6 +92,8 @@
 
     [Parameter]
     public string? ShareToken { get; set; }
+
+    private bool CanOpen => FilePreview.CanOpen(File.ContentType);
 
     private async Task DeleteAsync()
     {
