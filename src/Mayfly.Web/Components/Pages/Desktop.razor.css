@@ -167,6 +167,10 @@
   text-decoration: none;
 }
 
+.context-menu [hidden] {
+  display: none;
+}
+
 .context-menu a:hover,
 .context-menu button:hover,
 .context-menu :focus-visible {
