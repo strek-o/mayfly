@@ -48,7 +48,12 @@
 
             <label>
                 Files
-                <input type="file" name="file" multiple required />
+                <input type="file" name="file" multiple />
+            </label>
+
+            <label>
+                Folder
+                <input type="file" name="folder" webkitdirectory />
             </label>
 
             <label>
@@ -206,7 +211,7 @@ else
         : "This folder is empty. Drop files here and choose how long they stay.")
 </p>
 
-<p class="drop-hint">Drop files anywhere to upload · up to @FileSize.Format(FileUploadEndpoints.MaxFileSize) each</p>
+<p class="drop-hint">Drop files or folders anywhere to upload · up to @FileSize.Format(FileUploadEndpoints.MaxFileSize) each</p>
 
 <div class="drop-zone" data-drop-zone hidden>
     <p>Drop to upload</p>
@@ -215,6 +220,7 @@ else
 <div class="context-menu" role="menu" aria-label="Desktop" data-context-menu="desktop" hidden>
     <button type="button" role="menuitem" data-action="new-folder">New folder</button>
     <button type="button" role="menuitem" data-action="upload">Upload files</button>
+    <button type="button" role="menuitem" data-action="upload-folder">Upload folder</button>
 </div>
 
 <div class="context-menu" role="menu" aria-label="File" data-context-menu="file" hidden>

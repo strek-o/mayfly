@@ -263,12 +263,15 @@ const desktopActions = {
     details.open = true;
     details.querySelector('input:not([type="hidden"])').focus();
   },
-  upload: () => {
-    const details = document.querySelector(".upload");
-    details.open = true;
-    details.querySelector('input[type="file"]').click();
-  },
+  upload: () => openUpload("file"),
+  "upload-folder": () => openUpload("folder"),
 };
+
+function openUpload(input) {
+  const details = document.querySelector(".upload");
+  details.open = true;
+  details.querySelector(`input[name="${input}"]`).click();
+}
 
 document.addEventListener("click", (event) => {
   const action = event.target.closest("[data-action]")?.dataset.action;
@@ -452,6 +455,8 @@ document.addEventListener("submit", (event) => {
   }
 });
 
+let droppedUpload = null;
+
 document.addEventListener("submit", async (event) => {
   const form = event.target;
   if (!(form instanceof HTMLFormElement) || !form.hasAttribute("data-upload")) {
@@ -459,40 +464,54 @@ document.addEventListener("submit", async (event) => {
   }
 
   event.preventDefault();
-  const files = [...form.elements.file.files];
+  const { files, directories } = chosenUpload(form);
   const status = form.querySelector("[data-upload-status]");
   const button = form.querySelector("button[type=submit]");
-  if (files.length === 0) {
+  if (files.length === 0 && directories.length === 0) {
     return;
   }
 
   const tooLarge = files.find(
-    (file) => file.size > Number(form.dataset.maxSize),
+    ({ file }) => file.size > Number(form.dataset.maxSize),
   );
   if (tooLarge) {
-    status.textContent = `${tooLarge.name} is too large.`;
+    status.textContent = `${tooLarge.file.name} is too large.`;
     return;
   }
 
   button.disabled = true;
-  let current = files[0];
+  let current = "";
 
   try {
-    for (const [index, file] of files.entries()) {
-      current = file;
+    const antiforgery = form.elements.__RequestVerificationToken.value;
+    const folderIds = new Map([["", form.elements.FolderId.value]]);
+    for (const path of directories) {
+      const slash = path.lastIndexOf("/");
+      const parentId = folderIds.get(path.slice(0, Math.max(slash, 0)));
+      current = path;
+      status.textContent = `Creating ${path}…`;
+      const created = await postForm("folders", antiforgery, {
+        Name: path.slice(slash + 1),
+        ...(parentId ? { ParentId: parentId } : {}),
+      });
+      folderIds.set(path, (await created.json()).id);
+    }
+
+    for (const [index, { file, directory }] of files.entries()) {
+      current = file.name;
       status.textContent =
         files.length > 1
           ? `Uploading ${index + 1} of ${files.length}: ${file.name}…`
           : `Uploading ${file.name}…`;
-      await uploadFile(form, file);
+      await uploadFile(form, file, folderIds.get(directory));
     }
 
     location.reload();
   } catch (error) {
     status.textContent =
       error.status === 409
-        ? `Not enough storage space left for ${current.name}.`
-        : `${current.name} failed to upload. Check the expiration date and try again.`;
+        ? `Not enough storage space left for ${current}.`
+        : `${current} failed to upload. Check the expiration date and try again.`;
     button.disabled = false;
   }
 });
@@ -504,6 +523,7 @@ document.addEventListener("change", (event) => {
     input.type === "file" &&
     input.form?.hasAttribute("data-upload")
   ) {
+    droppedUpload = null;
     showChosenFiles(input.form);
   }
 });
@@ -523,7 +543,7 @@ document.addEventListener("dragleave", (event) => {
   }
 });
 
-document.addEventListener("drop", (event) => {
+document.addEventListener("drop", async (event) => {
   const zone = document.querySelector("[data-drop-zone]");
   const form = document.querySelector("form[data-upload]");
   if (!zone || !form || !event.dataTransfer?.files.length) {
@@ -532,23 +552,90 @@ document.addEventListener("drop", (event) => {
 
   event.preventDefault();
   zone.hidden = true;
-  form.elements.file.files = event.dataTransfer.files;
+  const files = [...event.dataTransfer.files];
+  const entries = [...event.dataTransfer.items]
+    .filter((item) => item.kind === "file")
+    .map((item) => item.webkitGetAsEntry());
+  form.elements.file.value = "";
+  form.elements.folder.value = "";
+  droppedUpload = entries.every(Boolean)
+    ? await readDropped(entries)
+    : {
+        files: files.map((file) => ({ file, directory: "" })),
+        directories: [],
+      };
   form.closest("details").open = true;
   showChosenFiles(form);
   form.elements.Lifetime.focus();
 });
 
+function chosenUpload(form) {
+  if (droppedUpload) {
+    return droppedUpload;
+  }
+
+  const directories = new Set();
+  const chosen = [...form.elements.file.files, ...form.elements.folder.files];
+  const files = chosen.map((file) => {
+    const parts = file.webkitRelativePath.split("/").slice(0, -1);
+    parts.forEach((_, index) =>
+      directories.add(parts.slice(0, index + 1).join("/")),
+    );
+    return { file, directory: parts.join("/") };
+  });
+  return { files, directories: [...directories] };
+}
+
+async function readDropped(entries) {
+  const upload = { files: [], directories: [] };
+  const walk = async (entry, directory) => {
+    if (entry.isFile) {
+      const file = await new Promise((resolve, reject) =>
+        entry.file(resolve, reject),
+      );
+      upload.files.push({ file, directory });
+      return;
+    }
+
+    const path = directory ? `${directory}/${entry.name}` : entry.name;
+    upload.directories.push(path);
+    const reader = entry.createReader();
+    const readBatch = () =>
+      new Promise((resolve, reject) => reader.readEntries(resolve, reject));
+    for (
+      let batch = await readBatch();
+      batch.length > 0;
+      batch = await readBatch()
+    ) {
+      for (const child of batch) {
+        await walk(child, path);
+      }
+    }
+  };
+
+  for (const entry of entries) {
+    await walk(entry, "");
+  }
+
+  return upload;
+}
+
 function showChosenFiles(form) {
-  const names = [...form.elements.file.files].map((file) => file.name);
+  const { files, directories } = chosenUpload(form);
+  const names = [
+    ...directories
+      .filter((path) => !path.includes("/"))
+      .map((path) => `${path}/`),
+    ...files.filter(({ directory }) => !directory).map(({ file }) => file.name),
+  ];
   form.querySelector("[data-upload-status]").textContent =
     names.length > 0 ? `Ready: ${names.join(", ")}` : "";
 }
 
-async function uploadFile(form, file) {
+async function uploadFile(form, file, folderId) {
   const antiforgery = form.elements.__RequestVerificationToken.value;
   const contentType = file.type || "application/octet-stream";
   const customExpiresAt = form.elements.CustomExpiresAt;
-  const folderId = form.elements.FolderId?.value;
 
   const started = await postForm(form.action, antiforgery, {
     FileName: file.name,

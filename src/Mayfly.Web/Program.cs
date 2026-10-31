@@ -144,6 +144,7 @@ app.MapSharedFileDownloadEndpoint();
 app.MapFileUploadEndpoints();
 app.MapFileDownloadEndpoint();
 app.MapFileMoveEndpoint();
+app.MapFolderCreateEndpoint();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>();

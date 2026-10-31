@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 using Azure.Storage.Blobs;
 using Mayfly.Core.Cleanup;
@@ -295,6 +296,31 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
         Assert.NotEqual(HttpStatusCode.Redirect, response.StatusCode);
         await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
         Assert.False(await db.Folders.AnyAsync(f => f.Name == "Intruder", Ct));
+    }
+
+    [Fact]
+    public async Task FolderEndpoint_CreatesFoldersOnlyInOwnFolders()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var (_, otherId) = await RegisterAsync();
+        var foreignId = await SeedFolderAsync(otherId);
+        var antiforgery = await GetAntiforgeryTokenAsync(owner, "/desktop");
+
+        var top = await owner.PostAsync("/folders", Form(antiforgery, ("Name", " Photos ")), Ct);
+        var topId = (await top.Content.ReadFromJsonAsync<FolderCreateEndpoint.FolderCreated>(Ct))!.Id;
+        var nested = await owner.PostAsync("/folders", Form(antiforgery, ("Name", "2026"), ("ParentId", topId.ToString())), Ct);
+        var foreign = await owner.PostAsync("/folders", Form(antiforgery, ("Name", "Intruder"), ("ParentId", foreignId.ToString())), Ct);
+        var blank = await owner.PostAsync("/folders", Form(antiforgery, ("Name", "  ")), Ct);
+
+        Assert.Equal(HttpStatusCode.OK, top.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, nested.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, foreign.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, blank.StatusCode);
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        Assert.Equal("Photos", await db.Folders.Where(f => f.Id == topId && f.OwnerId == ownerId && f.ParentId == null).Select(f => f.Name).SingleAsync(Ct));
+        Assert.True(await db.Folders.AnyAsync(f => f.OwnerId == ownerId && f.ParentId == topId && f.Name == "2026", Ct));
+        Assert.False(await db.Folders.AnyAsync(f => f.Name == "Intruder", Ct));
+        Assert.Equal(2, await db.Folders.CountAsync(f => f.OwnerId == ownerId, Ct));
     }
 
     [Fact]
