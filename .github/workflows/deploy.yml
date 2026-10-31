@@ -115,8 +115,19 @@ jobs:
             --no-build \
             --connection "$CONNECTION_STRING"
 
+      - name: Request federated token for sqlcmd
+        run: |
+          response="$(curl --fail --silent --show-error \
+            --header "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange")"
+          jq --exit-status --raw-output .value <<< "$response" > "$RUNNER_TEMP/azure-federated-token"
+
       - name: Grant app identity access to database
         uses: azure/sql-action@eb1f9a80487ca52b90f41a473f53da4943526994 # v2.4
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_FEDERATED_TOKEN_FILE: ${{ runner.temp }}/azure-federated-token
         with:
           connection-string: ${{ steps.sql.outputs.connection_string }}
           path: infra/sql/app-user.sql
