@@ -492,6 +492,15 @@ textarea.invalid {
   border-color: var(--soon);
 }
 
+.marquee {
+  position: fixed;
+  z-index: 15;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

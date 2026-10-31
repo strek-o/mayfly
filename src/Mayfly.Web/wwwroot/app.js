@@ -218,6 +218,7 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
+  clearSelection();
   const invoker = closeContextMenu();
   const menu = document.querySelector("details[data-menu][open]");
   if (invoker) {
@@ -228,6 +229,68 @@ document.addEventListener("keydown", (event) => {
     document.querySelector("[data-window-close]")?.click();
   }
 });
+
+let marquee = null;
+
+function clearSelection() {
+  for (const item of document.querySelectorAll(".desktop > .item.selected")) {
+    item.classList.remove("selected");
+  }
+}
+
+function endMarquee() {
+  marquee?.box?.remove();
+  marquee = null;
+}
+
+document.addEventListener("mousedown", (event) => {
+  if (event.button !== 0 || !event.target.matches?.(".desktop")) {
+    return;
+  }
+
+  event.preventDefault();
+  document.activeElement?.blur();
+  clearSelection();
+  marquee = { x: event.clientX, y: event.clientY, grid: event.target };
+});
+
+document.addEventListener("mousemove", (event) => {
+  if (!marquee) {
+    return;
+  }
+
+  if (!(event.buttons & 1)) {
+    endMarquee();
+    return;
+  }
+
+  const left = Math.min(marquee.x, event.clientX);
+  const top = Math.min(marquee.y, event.clientY);
+  const right = Math.max(marquee.x, event.clientX);
+  const bottom = Math.max(marquee.y, event.clientY);
+  marquee.box ??= document.body.appendChild(
+    Object.assign(document.createElement("div"), { className: "marquee" }),
+  );
+  Object.assign(marquee.box.style, {
+    left: `${left}px`,
+    top: `${top}px`,
+    width: `${right - left}px`,
+    height: `${bottom - top}px`,
+  });
+
+  for (const item of marquee.grid.querySelectorAll(":scope > .item")) {
+    const box = item.querySelector(":scope > a").getBoundingClientRect();
+    item.classList.toggle(
+      "selected",
+      box.left < right &&
+        box.right > left &&
+        box.top < bottom &&
+        box.bottom > top,
+    );
+  }
+});
+
+document.addEventListener("mouseup", endMarquee);
 
 const contextMenuExclusions =
   ".menubar, .window, .path, .context-menu, input, select, textarea, [contenteditable]";
