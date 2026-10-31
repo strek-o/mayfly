@@ -16,6 +16,9 @@ public static class Expiration
             _ => throw new ArgumentOutOfRangeException(nameof(lifetime))
         };
 
+    public static DateTimeOffset? Earliest(DateTimeOffset? first, DateTimeOffset? second) =>
+        first is null ? second : second is null ? first : first < second ? first : second;
+
     public static IQueryable<T> WhereNotExpired<T>(this IQueryable<T> items, DateTimeOffset now)
         where T : IExpiring =>
         items.Where(item => item.ExpiresAt == null || item.ExpiresAt > now);

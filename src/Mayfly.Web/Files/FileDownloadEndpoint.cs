@@ -24,11 +24,13 @@ public static class FileDownloadEndpoint
         CancellationToken cancellationToken)
     {
         var ownerId = userManager.GetUserId(user);
+        var now = DateTimeOffset.UtcNow;
 
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
         var file = await db.Files
             .AsNoTracking()
-            .WhereNotExpired(DateTimeOffset.UtcNow)
+            .WhereNotExpired(now)
+            .WhereFolderNotExpired(db.Folders, now)
             .SingleOrDefaultAsync(f => f.Id == id && f.OwnerId == ownerId && f.UploadedAt != null, cancellationToken);
 
         if (file is null)

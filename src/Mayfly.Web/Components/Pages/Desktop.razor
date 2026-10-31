@@ -285,6 +285,7 @@ else
             OwnerId = ownerId,
             ParentId = folder?.Id,
             Name = FolderInput.Name.Trim(),
+            ExpiresAt = folder?.ExpiresAt,
             CreatedAt = DateTimeOffset.UtcNow
         });
         await db.SaveChangesAsync();

@@ -43,10 +43,20 @@ public static class FolderCreateEndpoint
             ?? throw new InvalidOperationException("Signed-in user has no id claim.");
 
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
-        if (form.ParentId is { } parent
-            && !await db.Folders.WhereNotExpired(now).AnyAsync(folder => folder.Id == parent && folder.OwnerId == ownerId, cancellationToken))
+        DateTimeOffset? parentExpiresAt = null;
+        if (form.ParentId is { } parentId)
         {
-            return Results.BadRequest();
+            var parent = await db.Folders
+                .WhereNotExpired(now)
+                .Where(folder => folder.Id == parentId && folder.OwnerId == ownerId)
+                .Select(folder => new { folder.ExpiresAt })
+                .SingleOrDefaultAsync(cancellationToken);
+            if (parent is null)
+            {
+                return Results.BadRequest();
+            }
+
+            parentExpiresAt = parent.ExpiresAt;
         }
 
         var folder = new Folder
@@ -55,7 +65,7 @@ public static class FolderCreateEndpoint
             ParentId = form.ParentId,
             Name = name,
             CreatedAt = now,
-            ExpiresAt = Expiration.Calculate(form.Lifetime, now, customExpiresAt)
+            ExpiresAt = Expiration.Earliest(Expiration.Calculate(form.Lifetime, now, customExpiresAt), parentExpiresAt)
         };
         db.Folders.Add(folder);
         await db.SaveChangesAsync(cancellationToken);

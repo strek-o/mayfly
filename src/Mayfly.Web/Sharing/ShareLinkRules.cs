@@ -20,7 +20,7 @@ public static class ShareLinkRules
     public static IQueryable<ShareLink> WhereTargetAvailable(this IQueryable<ShareLink> links, MayflyDbContext db, DateTimeOffset now)
     {
         var livePastes = db.Pastes.WhereNotExpired(now);
-        var liveFiles = db.Files.Where(file => file.UploadedAt != null).WhereNotExpired(now);
+        var liveFiles = db.Files.Where(file => file.UploadedAt != null).WhereNotExpired(now).WhereFolderNotExpired(db.Folders, now);
         return links.Where(link =>
             livePastes.Any(paste => paste.Id == link.PasteId)
             || liveFiles.Any(file => file.Id == link.FileId)

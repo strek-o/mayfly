@@ -1,3 +1,4 @@
+using Mayfly.Core.Time;
 using Microsoft.EntityFrameworkCore;
 
 namespace Mayfly.Core.Data;
@@ -16,6 +17,15 @@ public static class FolderTree
             .ToListAsync(cancellationToken);
 
         return ownerFolders.Live(now).Subtree(rootId);
+    }
+
+    public static IQueryable<FileItem> WhereFolderNotExpired(
+        this IQueryable<FileItem> files,
+        IQueryable<Folder> folders,
+        DateTimeOffset now)
+    {
+        var liveFolders = folders.WhereNotExpired(now);
+        return files.Where(file => file.FolderId == null || liveFolders.Any(folder => folder.Id == file.FolderId));
     }
 
     public static List<Folder> Subtree(this IReadOnlyList<Folder> folders, Guid rootId)

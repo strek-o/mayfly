@@ -347,6 +347,81 @@ public class DatabaseTests(DatabaseFixture database) : IClassFixture<DatabaseFix
     }
 
     [Fact]
+    public async Task NewFolders_NeverOutliveTheirParent()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var now = DateTimeOffset.UtcNow;
+        var hourParentId = await SeedFolderAsync(ownerId, expiresAt: now.AddHours(1));
+        var weekParentId = await SeedFolderAsync(ownerId, expiresAt: now.AddDays(7));
+        var antiforgery = await GetAntiforgeryTokenAsync(owner, "/desktop");
+        var parentUrl = $"/desktop/folders/{hourParentId}";
+
+        await owner.PostAsync("/folders", Form(antiforgery, ("Name", "Uploaded"), ("ParentId", hourParentId.ToString())), Ct);
+        await owner.PostAsync(
+            "/folders",
+            Form(antiforgery, ("Name", "Shorter"), ("Lifetime", "OneHour"), ("ParentId", weekParentId.ToString())),
+            Ct);
+        await owner.PostAsync(
+            parentUrl,
+            Form(await GetAntiforgeryTokenAsync(owner, parentUrl), ("_handler", "create-folder"), ("FolderInput.Name", "Manual")),
+            Ct);
+
+        await using var db = await database.DbFactory.CreateDbContextAsync(Ct);
+        var parentExpiresAt = await db.Folders.Where(f => f.Id == hourParentId).Select(f => f.ExpiresAt).SingleAsync(Ct);
+        var expiry = await db.Folders
+            .Where(f => f.OwnerId == ownerId && f.ParentId != null)
+            .ToDictionaryAsync(f => f.Name, f => f.ExpiresAt, Ct);
+        Assert.Equal(parentExpiresAt, expiry["Uploaded"]);
+        Assert.Equal(parentExpiresAt, expiry["Manual"]);
+        Assert.InRange(expiry["Shorter"]!.Value, now.AddHours(1), DateTimeOffset.UtcNow.AddHours(1));
+    }
+
+    [Fact]
+    public async Task FilesInExpiredFolders_StopCountingAndCannotBeDownloaded()
+    {
+        var (owner, ownerId) = await RegisterAsync();
+        var now = DateTimeOffset.UtcNow;
+        var expiredId = await SeedFolderAsync(ownerId, expiresAt: now.AddMinutes(-1));
+        var (inside, _) = await SeedFileAsync(ownerId, now, uploaded: true, folderId: expiredId);
+        await SeedFileAsync(ownerId, now, uploaded: true);
+        var token = ShareToken.Generate();
+        await using (var db = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            db.ShareLinks.Add(new ShareLink { FileId = inside.Id, TokenHash = ShareToken.Hash(token), CreatedAt = now });
+            await db.SaveChangesAsync(Ct);
+            Assert.Equal(5, await db.GetUsedBytesAsync(ownerId, DateTimeOffset.UtcNow, Ct));
+        }
+
+        Assert.Equal(HttpStatusCode.NotFound, (await CreateClient().GetAsync($"/s/{token}", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync($"/files/{inside.Id}/download", Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task DesktopLink_StopsServingAFolderThatExpiresDuringTheVisit()
+    {
+        var (_, ownerId) = await RegisterAsync();
+        var now = DateTimeOffset.UtcNow;
+        var folderId = await SeedFolderAsync(ownerId, expiresAt: now.AddHours(1));
+        var (inside, _) = await SeedFileAsync(ownerId, now, uploaded: true, folderId: folderId);
+        var token = await SeedDesktopLinkAsync(ownerId);
+        var visitor = CreateClient();
+        await visitor.PostAsync(
+            $"/s/{token}",
+            Form(await GetAntiforgeryTokenAsync(visitor, $"/s/{token}"), ("_handler", "reveal")),
+            Ct);
+        var window = await visitor.GetStringAsync($"/s/{token}?folder={folderId}&file={inside.Id}", Ct);
+        var antiforgery = AntiforgeryField.Match(window).Groups[1].Value;
+        await using (var db = await database.DbFactory.CreateDbContextAsync(Ct))
+        {
+            await db.Folders.Where(f => f.Id == folderId).ExecuteUpdateAsync(set => set.SetProperty(f => f.ExpiresAt, now.AddMinutes(-1)), Ct);
+        }
+
+        var download = await visitor.PostAsync($"/s/{token}/download", Form(antiforgery, ("FileId", inside.Id.ToString())), Ct);
+
+        Assert.Equal(HttpStatusCode.NotFound, download.StatusCode);
+    }
+
+    [Fact]
     public async Task ExpiredFolder_HidesItsContentsUntilCleanupDeletesThem()
     {
         var (owner, ownerId) = await RegisterAsync();

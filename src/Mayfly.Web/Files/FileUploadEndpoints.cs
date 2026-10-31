@@ -62,7 +62,7 @@ public static class FileUploadEndpoints
             return Results.BadRequest();
         }
 
-        var usedBytes = await db.Files.GetUsedBytesAsync(ownerId, now, cancellationToken);
+        var usedBytes = await db.GetUsedBytesAsync(ownerId, now, cancellationToken);
         if (usedBytes + form.Size > FileQuota.MaxBytesPerUser)
         {
             return Results.Conflict();

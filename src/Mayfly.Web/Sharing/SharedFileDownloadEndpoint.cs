@@ -49,7 +49,11 @@ public static class SharedFileDownloadEndpoint
         var folderIds = link?.FolderId is { } sharedFolderId
             ? (await db.Folders.LoadTreeAsync(sharedFolderId, now, cancellationToken)).Select(folder => folder.Id).ToList()
             : [];
-        var liveFiles = db.Files.AsNoTracking().Where(f => f.UploadedAt != null).WhereNotExpired(now);
+        var liveFiles = db.Files
+            .AsNoTracking()
+            .Where(f => f.UploadedAt != null)
+            .WhereNotExpired(now)
+            .WhereFolderNotExpired(db.Folders, now);
         var file = link switch
         {
             null => null,

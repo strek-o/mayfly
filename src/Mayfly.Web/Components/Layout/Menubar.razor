@@ -58,6 +58,6 @@
             ?? throw new InvalidOperationException("Signed-in user has no id claim.");
 
         await using var db = await DbFactory.CreateDbContextAsync();
-        usedBytes = await db.Files.GetUsedBytesAsync(ownerId, DateTimeOffset.UtcNow);
+        usedBytes = await db.GetUsedBytesAsync(ownerId, DateTimeOffset.UtcNow);
     }
 }
